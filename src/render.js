@@ -29,6 +29,28 @@ const HAZARD = '255,45,79'; // shutdown front / danger red (rgb triplet)
 const SILHOUETTE = '#04070e'; // racks / towers — near-black, cool
 const RIM = 'rgba(120,230,255,0.9)'; // cyan rim (the slide-under affordance)
 const RIM_WARM = 'rgba(255,150,90,0.95)'; // thermal rim
+// Outrun/synthwave accents — the retrosun gradient + horizon magenta.
+const SUN_HOT = '255,242,214'; // white-hot sun center (rgb triplet)
+const SUN_MID = '255,138,46'; // amber sun body
+const SUN_RIM = '255,64,160'; // magenta sun rim / horizon glow
+const MAGENTA = '226,72,196'; // synthwave magenta accent (grid near horizon)
+
+// Post-process / atmosphere dials. One object so the whole look is tunable in a
+// single place; `scale` is a master multiplier (drop it to soften everything or
+// claw back frame budget on a slow device). Pure layers read `FX.x * FX.scale`.
+const FX = {
+  scale: 1, // master 0..1 intensity
+  bloom: 0.55, // additive bloom strength
+  bloomDownscale: 4, // bright-pass buffer = backing / this (bigger = blurrier + cheaper)
+  bloomPasses: 2, // extra down/up blur iterations
+  ca: 2.2, // chromatic-aberration max pixel split (edge-weighted, device px)
+  sun: 1, // retrosun size/intensity
+  godrays: 0.4, // light-shaft strength
+  reflection: 0.55, // floor reflection strength
+  dust: 36, // far data-dust particle count
+  vignette: 0.95, // CRT vignette strength
+  roll: 0.16, // CRT rolling refresh-bar strength
+};
 
 function mulberry32(seed) {
   return function () {
@@ -48,6 +70,23 @@ export class Renderer {
     this.racks = this._buildRacks(20240101, 60, 0.18, 0.42);
     this.towers = this._buildTowers(73019, 26);
     this.code = this._buildCode(0xc0de, 26);
+    this.dust = this._buildDust(0xd057, 64); // far drifting data-dust (capped at FX.dust)
+  }
+
+  _buildDust(seed, count) {
+    const rnd = mulberry32(seed);
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      out.push({
+        xf: rnd(), // fractional x
+        yf: rnd() * rnd(), // biased toward the horizon (small yf)
+        drift: 0.01 + rnd() * 0.05, // slow horizontal drift
+        size: 0.6 + rnd() * 1.6,
+        bright: 0.15 + rnd() * 0.4,
+        twk: 1 + rnd() * 4, // twinkle rate
+      });
+    }
+    return out;
   }
 
   _buildRacks(seed, count, minH, maxH) {
@@ -110,18 +149,22 @@ export class Renderer {
     }
 
     this._sky(ctx, w, h, horizonY);
+    this._dataDust(ctx, w, horizonY, state.distance, time);
     this._codeRain(ctx, w, horizonY, time);
     this._racks(ctx, view, horizonY, state.distance, time);
-    this._coreBand(ctx, w, horizonY, time, alarm);
+    this._retrosun(ctx, w, horizonY, time, alarm);
+    this._godRays(ctx, w, horizonY, time, state.darkness || 0);
     this._dataGrid(ctx, view, horizonY, state.distance, time);
     this._towers(ctx, view, groundY, state.distance);
     this._floor(ctx, w, h, groundY);
+    this._sunReflection(ctx, w, groundY, h, time, alarm);
 
     this._tokens(ctx, view, state.motes, time);
     this._obstacles(ctx, view, state.obstacles, groundY, time);
     this._agent(ctx, view, state.player, groundY, time, state.running, alarm);
     this._particles(ctx, state.particles);
 
+    this._bloomAndCA(ctx); // bright-pass bloom + chromatic aberration (no-op without offscreen)
     this._shutdownFront(ctx, w, h, state.darkness, alarm, time);
     this._scanlines(ctx, w, h, alarm, state.shake || 0, time);
 
@@ -205,28 +248,136 @@ export class Renderer {
     ctx.restore();
   }
 
-  // The AI core on the horizon — a molten thermal band with a breathing bloom.
-  // It shifts hotter/redder as the runway empties (alarm).
-  _coreBand(ctx, w, horizonY, time, alarm) {
-    const pulse = 0.85 + Math.sin(time * 1.5) * 0.15;
-    const bandH = 8;
-    const redshift = alarm; // 0 = thermal orange, 1 = hazard red
+  // The retrosun on the horizon — the Outrun centerpiece. A radial sun
+  // (white-hot → amber → magenta) at the vanishing point, with the iconic
+  // horizontal stripe gaps carved into its lower half. Breathes with time and
+  // redshifts toward hazard as the runway empties (alarm). Replaces the old
+  // thermal core band but keeps the single-shadowBlur budget for the hot line.
+  _retrosun(ctx, w, horizonY, time, alarm) {
+    const pulse = 0.9 + Math.sin(time * 1.5) * 0.1;
+    const R = Math.min(w * 0.34, horizonY * 0.95) * (0.8 + 0.2 * FX.sun);
+    const cx = w * 0.5;
+    const cy = horizonY;
+    const midG = Math.round(138 - 70 * alarm); // sun body greens down → redder under alarm
     ctx.save();
-    // Bloom
-    const bloom = ctx.createLinearGradient(0, horizonY - 80, 0, horizonY + 80);
-    const midR = Math.round(255);
-    const midG = Math.round(122 - 60 * redshift);
-    const midB = Math.round(44 + 10 * redshift);
-    bloom.addColorStop(0, 'rgba(255,122,44,0)');
-    bloom.addColorStop(0.5, `rgba(${midR},${midG},${midB},${0.5 * pulse})`);
-    bloom.addColorStop(1, 'rgba(255,122,44,0)');
-    ctx.fillStyle = bloom;
-    ctx.fillRect(0, horizonY - 80, w, 160);
-    // Core line (single shadowBlur use — cheap enough for one band).
-    ctx.shadowColor = redshift > 0.5 ? `rgb(${HAZARD})` : CORE;
-    ctx.shadowBlur = 30;
-    ctx.fillStyle = CORE_HOT;
-    ctx.fillRect(0, horizonY - bandH / 2, w, bandH);
+
+    // Wide magenta horizon haze bleeding along the skyline.
+    const haze = ctx.createLinearGradient(0, horizonY - R * 0.7, 0, horizonY + R * 0.5);
+    haze.addColorStop(0, `rgba(${SUN_RIM},0)`);
+    haze.addColorStop(0.5, `rgba(${SUN_RIM},${0.18})`);
+    haze.addColorStop(1, `rgba(${SUN_RIM},0)`);
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, horizonY - R * 0.7, w, R * 1.2);
+
+    // The glowing sun disc (additive).
+    ctx.globalCompositeOperation = 'lighter';
+    const rs = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    rs.addColorStop(0, `rgba(${SUN_HOT},${0.95 * pulse})`);
+    rs.addColorStop(0.35, `rgba(255,${midG},46,${0.85 * pulse})`);
+    rs.addColorStop(0.72, `rgba(${SUN_RIM},${0.6 * pulse})`);
+    rs.addColorStop(1, `rgba(${SUN_RIM},0)`);
+    ctx.fillStyle = rs;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Retrosun stripe gaps — punch widening bands across the lower half,
+    // clipped to the disc, so the sky shows through (the iconic look).
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = SKY_LOW;
+    ctx.globalAlpha = 0.85;
+    const stripes = 6;
+    for (let i = 0; i < stripes; i++) {
+      const f = i / stripes;
+      const gy = cy + f * R; // lower half only
+      const gh = 2 + f * (R * 0.16); // gaps widen downward
+      ctx.fillRect(cx - R, gy, R * 2, gh);
+    }
+    ctx.restore();
+
+    // Hot horizon line (the one allowed shadowBlur).
+    ctx.shadowColor = alarm > 0.5 ? `rgb(${HAZARD})` : `rgb(${SUN_MID})`;
+    ctx.shadowBlur = 26;
+    ctx.fillStyle = `rgba(${SUN_HOT},${0.9 * pulse})`;
+    ctx.fillRect(0, horizonY - 3, w, 6);
+    ctx.restore();
+  }
+
+  // Volumetric light shafts fanning down from the retrosun (additive, slow sway).
+  _godRays(ctx, w, horizonY, time, darkness) {
+    const a0 = FX.godrays * FX.scale * (0.35 + darkness * 0.5);
+    if (a0 <= 0.01) return;
+    const cx = w * 0.5;
+    const cy = horizonY;
+    const reach = horizonY * 1.5;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const rays = 7;
+    for (let i = 0; i < rays; i++) {
+      const spread = (i / (rays - 1) - 0.5) * 1.7;
+      const ang = Math.PI / 2 + spread + Math.sin(time * 0.2 + i) * 0.04; // downward + sway
+      const hw = 0.05 + (i % 2) * 0.03;
+      const x1 = cx + Math.cos(ang - hw) * reach;
+      const y1 = cy + Math.sin(ang - hw) * reach;
+      const x2 = cx + Math.cos(ang + hw) * reach;
+      const y2 = cy + Math.sin(ang + hw) * reach;
+      const g = ctx.createLinearGradient(cx, cy, (x1 + x2) / 2, (y1 + y2) / 2);
+      g.addColorStop(0, `rgba(${SUN_MID},${a0})`);
+      g.addColorStop(1, `rgba(${SUN_MID},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Wet-grid reflection of the retrosun shimmering on the data-floor.
+  _sunReflection(ctx, w, groundY, h, time, alarm) {
+    const a0 = FX.reflection * FX.scale;
+    if (a0 <= 0.01 || h <= groundY) return;
+    const cx = w * 0.5;
+    const midG = Math.round(138 - 70 * alarm);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const cols = 5;
+    for (let i = 0; i < cols; i++) {
+      const f = i / (cols - 1) - 0.5;
+      const wob = Math.sin(time * 2 + i) * 6;
+      const x = cx + f * w * 0.22 + wob;
+      const g = ctx.createLinearGradient(x, groundY, x, h);
+      g.addColorStop(0, `rgba(255,${midG},46,${0.5 * a0})`);
+      g.addColorStop(0.5, `rgba(${SUN_RIM},${0.22 * a0})`);
+      g.addColorStop(1, `rgba(${SUN_RIM},0)`);
+      ctx.fillStyle = g;
+      const cw = w * (0.04 + 0.03 * (1 - Math.min(1, Math.abs(f) * 2)));
+      ctx.fillRect(x - cw / 2, groundY, cw, h - groundY);
+    }
+    ctx.restore();
+  }
+
+  // Far drifting data-dust near the horizon — cheap additive depth + twinkle.
+  _dataDust(ctx, w, horizonY, distance, time) {
+    const n = Math.min(this.dust.length, FX.dust | 0);
+    if (n <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      const d = this.dust[i];
+      const x = ((d.xf + distance * d.drift * 0.0008) % 1 + 1) % 1 * w;
+      const y = horizonY * (0.12 + d.yf * 0.8);
+      const tw = 0.5 + 0.5 * Math.sin(time * d.twk + i);
+      const a = d.bright * tw * FX.scale;
+      ctx.fillStyle = i % 2 ? `rgba(${SUN_RIM},${a})` : `rgba(${CIRCUIT},${a})`;
+      ctx.fillRect(x, y, d.size, d.size);
+    }
     ctx.restore();
   }
 
@@ -252,14 +403,21 @@ export class Renderer {
       ctx.stroke();
     }
 
-    // Horizontal rungs, perspective-spaced and scrolling toward us.
+    // Horizontal rungs, perspective-spaced and scrolling toward us. Colour
+    // lerps magenta (near the horizon/sun) → cyan (foreground) for the Outrun
+    // laser-grid read.
     const scroll = (distance * 0.5) % 1;
+    const mg = MAGENTA.split(',').map(Number);
+    const cy0 = CIRCUIT.split(',').map(Number);
     for (let i = 0; i < 22; i++) {
       const t = (i + scroll) / 22; // 0 at horizon, 1 at bottom
       const ease = t * t; // denser near horizon
       const y = horizonY + ease * (bottom - horizonY);
       const alpha = 0.08 + ease * 0.3;
-      ctx.strokeStyle = `rgba(${CIRCUIT},${alpha})`;
+      const r = Math.round(mg[0] + (cy0[0] - mg[0]) * ease);
+      const gg = Math.round(mg[1] + (cy0[1] - mg[1]) * ease);
+      const b = Math.round(mg[2] + (cy0[2] - mg[2]) * ease);
+      ctx.strokeStyle = `rgba(${r},${gg},${b},${alpha})`;
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(w, y);
@@ -594,12 +752,28 @@ export class Renderer {
   // CRT scanlines + vignette, with RGB-split glitch bars when the system is
   // failing (high alarm or a fresh hit). Kept cheap per the perf budget.
   _scanlines(ctx, w, h, alarm, shake, time) {
-    // Vignette.
-    const vg = ctx.createRadialGradient(w / 2, h / 2, h * 0.45, w / 2, h / 2, h * 0.95);
+    // Dual-tone vignette: deep cool corners, with the warm sun lifting center.
+    const vg = ctx.createRadialGradient(w / 2, h * 0.52, h * 0.34, w / 2, h * 0.52, h * 1.02);
     vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.3)');
+    vg.addColorStop(0.62, 'rgba(2,3,10,0)');
+    vg.addColorStop(1, `rgba(2,3,12,${0.46 * FX.vignette})`);
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, w, h);
+
+    // Rolling CRT refresh bar — a soft bright band sweeping down slowly.
+    if (FX.roll > 0.01) {
+      const ry = ((time * 0.08) % 1) * (h + 160) - 80;
+      const rg = ctx.createLinearGradient(0, ry - 70, 0, ry + 70);
+      rg.addColorStop(0, 'rgba(150,210,255,0)');
+      rg.addColorStop(0.5, `rgba(150,210,255,${0.5 * FX.roll})`);
+      rg.addColorStop(1, 'rgba(150,210,255,0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, ry - 70, w, 140);
+      ctx.restore();
+    }
+
     // Scanlines — a cached repeating pattern (one fill) instead of hundreds of
     // per-frame line fills, to stay within the mobile frame budget.
     const pattern = this._scanPattern(ctx);
@@ -646,6 +820,97 @@ export class Renderer {
       this._scan = null;
     }
     return this._scan;
+  }
+
+  // Lazily build quarter-res offscreen buffers for the bloom + CA post pass.
+  // Returns null where no canvas factory exists (the Node smoke harness) so the
+  // whole post stack is cleanly skipped. Rebuilds if the backing store resized.
+  _ensurePostBuffers(ctx) {
+    if (this._post === null) return null; // previously found unavailable
+    if (typeof document === 'undefined' || !document.createElement) { this._post = null; return null; }
+    const cw = ctx.canvas.width | 0;
+    const ch = ctx.canvas.height | 0;
+    const bw = Math.max(1, Math.round(cw / FX.bloomDownscale));
+    const bh = Math.max(1, Math.round(ch / FX.bloomDownscale));
+    if (this._post && this._post.bw === bw && this._post.bh === bh) return this._post;
+    try {
+      const mk = () => { const c = document.createElement('canvas'); c.width = bw; c.height = bh; return c; };
+      const a = mk(), b = mk(), r = mk(), bl = mk();
+      this._post = {
+        bw, bh,
+        a, actx: a.getContext('2d'),
+        b, bctx: b.getContext('2d'),
+        r, rctx: r.getContext('2d'),
+        bl, blctx: bl.getContext('2d'),
+      };
+    } catch (e) {
+      this._post = null;
+    }
+    return this._post;
+  }
+
+  // Make a colour-tinted, bloom-masked copy of `src` into `dctx`/`dcanvas`.
+  // multiply tints the RGB, then destination-in re-applies the bloom alpha so
+  // the flat fill doesn't leak into transparent regions.
+  _tintCopy(dctx, src, bw, bh, color) {
+    dctx.globalCompositeOperation = 'source-over';
+    dctx.clearRect(0, 0, bw, bh);
+    dctx.drawImage(src, 0, 0);
+    dctx.globalCompositeOperation = 'multiply';
+    dctx.fillStyle = color;
+    dctx.fillRect(0, 0, bw, bh);
+    dctx.globalCompositeOperation = 'destination-in';
+    dctx.drawImage(src, 0, 0);
+    dctx.globalCompositeOperation = 'source-over';
+  }
+
+  // Bright-pass bloom + edge-weighted chromatic aberration. Captures the lit
+  // scene into a quarter-res buffer, blurs by down/up sampling, then composites
+  // it back additively — plus red/blue-shifted copies for the lens fringe.
+  _bloomAndCA(ctx) {
+    const bloomA = FX.bloom * FX.scale;
+    if (bloomA <= 0.01) return;
+    const p = this._ensurePostBuffers(ctx);
+    if (!p) return;
+    const cw = ctx.canvas.width;
+    const ch = ctx.canvas.height;
+    const { bw, bh } = p;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // device pixels — neutralizes DPR + shake
+
+    // Bright pass: downscale the composed scene.
+    p.actx.imageSmoothingEnabled = true;
+    p.bctx.imageSmoothingEnabled = true;
+    p.actx.globalCompositeOperation = 'source-over';
+    p.actx.clearRect(0, 0, bw, bh);
+    p.actx.drawImage(ctx.canvas, 0, 0, cw, ch, 0, 0, bw, bh);
+
+    // Cheap blur: down/up sample within the buffer a few times.
+    for (let i = 0; i < FX.bloomPasses; i++) {
+      p.bctx.clearRect(0, 0, bw, bh);
+      p.bctx.drawImage(p.a, 0, 0, bw, bh, 0, 0, bw / 2, bh / 2);
+      p.actx.clearRect(0, 0, bw, bh);
+      p.actx.drawImage(p.b, 0, 0, bw / 2, bh / 2, 0, 0, bw, bh);
+    }
+
+    const ca = FX.ca;
+    if (ca > 0.1) {
+      this._tintCopy(p.rctx, p.a, bw, bh, '#ff2a2a');
+      this._tintCopy(p.blctx, p.a, bw, bh, '#2a6aff');
+    }
+
+    // Composite back additively, upscaled to full res.
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = bloomA;
+    ctx.drawImage(p.a, 0, 0, bw, bh, 0, 0, cw, ch);
+    if (ca > 0.1) {
+      ctx.globalAlpha = bloomA * 0.6;
+      ctx.drawImage(p.r, 0, 0, bw, bh, -ca, 0, cw, ch);
+      ctx.drawImage(p.bl, 0, 0, bw, bh, ca, 0, cw, ch);
+    }
+    ctx.restore();
   }
 
   _roundRect(ctx, x, y, w, h, r) {
