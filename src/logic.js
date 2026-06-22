@@ -42,6 +42,11 @@ export const CONFIG = {
   gravity: 3200, // downward acceleration (units/s^2)
   slideDuration: 0.62, // seconds a slide lasts
 
+  // Air control (one mid-air boost per jump; fast-fall to land quicker).
+  airBoostVelocity: 760, // upward impulse added by a mid-air boost
+  maxJumpVelocity: 1300, // cap on upward velocity so a boost can't fling off-screen
+  fastFallVelocity: 1700, // downward velocity applied by a fast-fall
+
   // Obstacle geometry.
   barrierHeight: 58,
   barrierWidth: 52,
@@ -133,6 +138,32 @@ export function spawnInterval(speed, cfg = CONFIG) {
 // Has enough time accumulated to spawn the next obstacle?
 export function shouldSpawn(timer, interval) {
   return timer >= interval;
+}
+
+// --- Air control ------------------------------------------------------------
+// `player` carries: onGround (bool), vy (upward-positive velocity), airBoostUsed
+// (bool). These helpers are pure: they return the new velocity/state to apply,
+// or null when the action isn't allowed; game.js does the mutation.
+
+// One mid-air boost per jump: only while airborne and not yet used this jump.
+export function canAirBoost(player) {
+  return !player.onGround && !player.airBoostUsed;
+}
+
+// Adds upward velocity (clamped) and consumes the single attempt. Additive so
+// it lifts whether rising or falling (double-jump feel), capped by maxJumpVelocity.
+export function applyAirBoost(player, cfg = CONFIG) {
+  if (!canAirBoost(player)) return null;
+  return {
+    vy: Math.min(player.vy + cfg.airBoostVelocity, cfg.maxJumpVelocity),
+    airBoostUsed: true,
+  };
+}
+
+// Fast-fall: a strong downward velocity so the runner lands sooner. Only in air.
+export function applyFastFall(player, cfg = CONFIG) {
+  if (player.onGround) return null;
+  return { vy: -cfg.fastFallVelocity };
 }
 
 // --- Scoring ----------------------------------------------------------------

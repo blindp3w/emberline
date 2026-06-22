@@ -15,6 +15,8 @@ import {
   addEmberlight,
   checkCollision,
   collectsMote,
+  applyAirBoost,
+  applyFastFall,
 } from './logic.js';
 import { Renderer } from './render.js';
 import { Audio } from './audio.js';
@@ -79,6 +81,7 @@ function freshGame() {
       onGround: true,
       sliding: false,
       slideTimer: 0,
+      airBoostUsed: false,
     },
     obstacles: [],
     motes: [],
@@ -217,6 +220,26 @@ function spawnPickupSparks(sx, sy) {
   }
 }
 
+// A downward puff of sparks under the runner when the mid-air boost fires.
+function spawnBoostSparks() {
+  const p = game.player;
+  const sx = (p.x + p.width / 2) * view.scale;
+  const sy = (WORLD.groundY - p.jumpOffset) * view.scale;
+  for (let i = 0; i < 12; i++) {
+    const a = Math.PI / 2 + (Math.random() - 0.5) * 1.4; // mostly downward
+    const speed = 80 + Math.random() * 180;
+    game.particles.push({
+      x: sx,
+      y: sy,
+      vx: Math.cos(a) * speed,
+      vy: Math.sin(a) * speed,
+      size: 2 + Math.random() * 2.5,
+      life: 0.35 + Math.random() * 0.3,
+      maxLife: 0.65,
+    });
+  }
+}
+
 function updateParticles(dt) {
   if (!game) return;
   for (const pt of game.particles) {
@@ -236,6 +259,7 @@ function jump() {
     p.onGround = false;
     p.vy = CONFIG.jumpVelocity;
     p.sliding = false; // jumping cancels a slide
+    p.airBoostUsed = false; // a fresh jump grants a new mid-air boost
     audio.jump();
   }
 }
@@ -247,11 +271,29 @@ function slide() {
     p.sliding = true;
     p.slideTimer = CONFIG.slideDuration;
     audio.slide();
-  } else if (!p.onGround) {
-    // Fast-fall: cut upward velocity so a slide can land quickly.
-    if (p.vy > 0) p.vy = 0;
-    p.vy -= CONFIG.gravity * 0.4 * 0.016;
   }
+}
+
+// Mid-air boost: swipe up / Up key while airborne, once per jump.
+function airBoost() {
+  if (phase !== STATE.RUNNING) return;
+  const p = game.player;
+  const res = applyAirBoost(p, CONFIG);
+  if (!res) return;
+  p.vy = res.vy;
+  p.airBoostUsed = res.airBoostUsed;
+  audio.boost();
+  spawnBoostSparks();
+}
+
+// Fast-fall: swipe down / Down key while airborne — drop quickly to land sooner.
+function fastFall() {
+  if (phase !== STATE.RUNNING) return;
+  const p = game.player;
+  const res = applyFastFall(p, CONFIG);
+  if (!res) return;
+  p.vy = res.vy;
+  audio.slide();
 }
 
 // The game-over splash appears after a short freeze; until it does, restarts
@@ -336,8 +378,14 @@ function onTouchEnd(e) {
   const end = e.changedTouches && e.changedTouches[0];
   const dy = end ? end.clientY - touchStart.y : 0;
   const elapsed = performance.now() - touchStart.t;
-  if (dy > SWIPE_DIST && elapsed < SWIPE_TIME) {
-    slide();
+  const onGround = game.player.onGround;
+  if (elapsed < SWIPE_TIME && dy < -SWIPE_DIST) {
+    // Swipe up: mid-air boost (no-op on the ground).
+    airBoost();
+  } else if (elapsed < SWIPE_TIME && dy > SWIPE_DIST) {
+    // Swipe down: slide on the ground, fast-fall in the air.
+    if (onGround) slide();
+    else fastFall();
   } else {
     jump();
   }
@@ -350,10 +398,12 @@ function onKeyDown(e) {
     audio.init();
     if (phase === STATE.READY) startGame();
     else if (phase === STATE.OVER) { if (canRestart) startGame(); }
-    else jump();
+    else if (game.player.onGround) jump();
+    else airBoost();
   } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
     e.preventDefault();
-    slide();
+    if (phase === STATE.RUNNING && !game.player.onGround) fastFall();
+    else slide();
   } else if (e.code === 'KeyM') {
     toggleMute();
   }

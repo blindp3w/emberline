@@ -19,6 +19,9 @@ import {
   scoreFromDistance,
   addEmberlight,
   collectsMote,
+  canAirBoost,
+  applyAirBoost,
+  applyFastFall,
 } from './src/logic.js';
 
 let passed = 0;
@@ -169,6 +172,33 @@ check('ember: collectsMote true when mote just touches edge within radius', coll
   { x: CONFIG.playerX + CONFIG.playerWidth + 10, y: G - CONFIG.standHeight / 2, r: CONFIG.moteRadius },
   G
 ));
+
+// --- air control: boost & fast-fall -----------------------------------------
+const onGroundPlayer = { onGround: true, vy: 0, airBoostUsed: false };
+const risingPlayer = { onGround: false, vy: 200, airBoostUsed: false };
+const usedPlayer = { onGround: false, vy: 200, airBoostUsed: true };
+const fastPlayer = { onGround: false, vy: CONFIG.maxJumpVelocity, airBoostUsed: false };
+
+check('air: canAirBoost false on ground', !canAirBoost(onGroundPlayer));
+check('air: canAirBoost true in air & unused', canAirBoost(risingPlayer));
+check('air: canAirBoost false once used', !canAirBoost(usedPlayer));
+
+check('air: applyAirBoost null on ground', applyAirBoost(onGroundPlayer) === null);
+check('air: applyAirBoost null on second attempt', applyAirBoost(usedPlayer) === null);
+const boosted = applyAirBoost(risingPlayer);
+check('air: applyAirBoost marks attempt used', boosted && boosted.airBoostUsed === true);
+check('air: applyAirBoost raises upward velocity', boosted && boosted.vy > risingPlayer.vy);
+check('air: applyAirBoost clamps to maxJumpVelocity', (() => {
+  const r = applyAirBoost(fastPlayer);
+  return r && r.vy === CONFIG.maxJumpVelocity;
+})());
+check('air: applyAirBoost does not mutate the player', risingPlayer.vy === 200 && risingPlayer.airBoostUsed === false);
+
+check('air: applyFastFall null on ground', applyFastFall(onGroundPlayer) === null);
+check('air: applyFastFall returns strong downward velocity', (() => {
+  const r = applyFastFall(risingPlayer);
+  return r && r.vy === -CONFIG.fastFallVelocity && r.vy < 0;
+})());
 
 // --- report -----------------------------------------------------------------
 console.log('');

@@ -67,6 +67,23 @@ export class Audio {
     osc.stop(t + 0.24);
   }
 
+  // Brighter, higher pulse for the mid-air boost (a lift above the jump blip).
+  boost() {
+    if (!this.ctx) return;
+    const t = this._now();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(520, t);
+    osc.frequency.exponentialRampToValueAtTime(1040, t + 0.14);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.42, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    osc.connect(gain).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 0.28);
+  }
+
   // A short airy whoosh for sliding.
   slide() {
     if (!this.ctx) return;
