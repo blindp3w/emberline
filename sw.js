@@ -3,7 +3,7 @@
 // changes at runtime and has no network data), with stale caches purged on
 // activate. Bump CACHE_VERSION on any asset change to invalidate old caches.
 
-const CACHE_VERSION = 'emberline-v6';
+const CACHE_VERSION = 'emberline-v7';
 
 // All paths are RELATIVE so the SW works both at the domain root and at a
 // GitHub Pages project subpath (e.g. /emberline/). `self.registration.scope`

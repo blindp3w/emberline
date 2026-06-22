@@ -17,6 +17,10 @@ import {
   collectsMote,
   applyAirBoost,
   applyFastFall,
+  overpassAhead,
+  obstacleSpacingOk,
+  requiredGap,
+  pickObstacleType,
 } from './logic.js';
 import { Renderer } from './render.js';
 import { Audio } from './audio.js';
@@ -81,6 +85,7 @@ function freshGame() {
       onGround: true,
       sitting: false,
       airBoostUsed: false,
+      needSitUnderpass: false,
     },
     obstacles: [],
     motes: [],
@@ -95,6 +100,7 @@ function freshGame() {
     darkness: 0,
     running: false,
     lastObstacleType: null,
+    sameTypeRun: 0,
   };
 }
 
@@ -104,10 +110,18 @@ function visibleWorldWidth() {
 }
 
 function spawnObstacle() {
-  // Avoid three of the same kind in a row to keep it fair/varied.
-  let type = Math.random() < 0.5 ? BARRIER : OVERPASS;
-  const x = visibleWorldWidth() + 80;
-  game.obstacles.push({ type, x });
+  const spawnX = visibleWorldWidth() + 80;
+  // Guarantee spacing so high-speed combos stay clearable (skip this tick if the
+  // last obstacle is still too close — density naturally thins as speed rises).
+  let rightmost = -Infinity;
+  for (const o of game.obstacles) if (o.x > rightmost) rightmost = o.x;
+  if (game.obstacles.length &&
+      !obstacleSpacingOk(rightmost, spawnX, requiredGap(game.lastObstacleType, CONFIG))) {
+    return;
+  }
+  const type = pickObstacleType(Math.random(), game.lastObstacleType, game.sameTypeRun);
+  game.obstacles.push({ type, x: spawnX });
+  game.sameTypeRun = type === game.lastObstacleType ? game.sameTypeRun + 1 : 1;
   game.lastObstacleType = type;
 }
 
@@ -179,6 +193,13 @@ function update(dt) {
   for (const m of game.motes) m.x -= dx;
   game.obstacles = game.obstacles.filter((o) => o.x > -200);
   game.motes = game.motes.filter((m) => m.x > -60 && !m.collected);
+
+  // Auto-stand: while sitting, arm the latch when an overpass is over/approaching,
+  // then stand once it has passed (overpass is horizontally clear, so no collision).
+  if (p.sitting) {
+    if (overpassAhead(p, game.obstacles)) p.needSitUnderpass = true;
+    else if (p.needSitUnderpass) standUp();
+  }
 
   // Collect motes.
   for (const m of game.motes) {
@@ -264,13 +285,17 @@ function sitDown() {
   const p = game.player;
   if (p.onGround && !p.sitting) {
     p.sitting = true;
+    p.needSitUnderpass = false; // armed later if an overpass actually approaches
     audio.slide();
   }
 }
 
 function standUp() {
   const p = game.player;
-  if (p.sitting) p.sitting = false;
+  if (p.sitting) {
+    p.sitting = false;
+    p.needSitUnderpass = false;
+  }
 }
 
 // Mid-air boost: airborne only, once per jump.
@@ -402,6 +427,8 @@ function onTouchEnd(e) {
 }
 
 function onKeyDown(e) {
+  // Ignore auto-repeat so holding a key can't spam actions or eat the air boost.
+  if (e.repeat) return;
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
     e.preventDefault();
     audio.init();

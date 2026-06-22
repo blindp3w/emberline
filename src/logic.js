@@ -46,6 +46,14 @@ export const CONFIG = {
   maxJumpVelocity: 1300, // cap on upward velocity so a boost can't fling off-screen
   fastFallVelocity: 1700, // downward velocity applied by a fast-fall
 
+  // Auto-stand: stand back up once a ducked-under overpass has passed.
+  autoStandLookahead: 40, // keep sitting while an overpass is this close ahead
+  autoStandClear: 10, // extra trailing clearance before standing
+
+  // Obstacle spacing (world units) — guarantees combos stay clearable.
+  baseObstacleGap: 480, // min gap after a non-jump obstacle
+  afterJumpGap: 900, // min gap after a BARRIER (you're airborne; need room to land + react)
+
   // Obstacle geometry.
   barrierHeight: 58,
   barrierWidth: 52,
@@ -163,6 +171,41 @@ export function applyAirBoost(player, cfg = CONFIG) {
 export function applyFastFall(player, cfg = CONFIG) {
   if (player.onGround) return null;
   return { vy: -cfg.fastFallVelocity };
+}
+
+// Is an OVERPASS currently over the player or close enough ahead that a sitting
+// player should keep sitting? Used to auto-stand once the overpass has passed.
+export function overpassAhead(player, obstacles, cfg = CONFIG) {
+  const pL = player.x;
+  const pR = player.x + player.width;
+  for (const o of obstacles) {
+    if (o.type !== OVERPASS) continue;
+    const oL = o.x;
+    const oR = o.x + cfg.overpassWidth;
+    if (oR >= pL - cfg.autoStandClear && oL <= pR + cfg.autoStandLookahead) return true;
+  }
+  return false;
+}
+
+// --- Spawn placement --------------------------------------------------------
+
+// Is there enough room between the rightmost existing obstacle and a new spawn?
+// With no obstacles, rightmostX is -Infinity, so this is always true.
+export function obstacleSpacingOk(rightmostX, spawnX, minGap) {
+  return spawnX - rightmostX >= minGap;
+}
+
+// Required spacing before the next obstacle. A BARRIER forces a jump, so the
+// next obstacle must be far enough away to land and react; otherwise base gap.
+export function requiredGap(lastType, cfg = CONFIG) {
+  return lastType === BARRIER ? cfg.afterJumpGap : cfg.baseObstacleGap;
+}
+
+// Choose the next obstacle type. Forces a switch after two of the same in a row
+// (no 3 identical), otherwise picks from `rand` in [0, 1).
+export function pickObstacleType(rand, lastType, sameRun) {
+  if (sameRun >= 2) return lastType === BARRIER ? OVERPASS : BARRIER;
+  return rand < 0.5 ? BARRIER : OVERPASS;
 }
 
 // --- Scoring ----------------------------------------------------------------

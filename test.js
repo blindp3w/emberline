@@ -22,6 +22,10 @@ import {
   canAirBoost,
   applyAirBoost,
   applyFastFall,
+  overpassAhead,
+  obstacleSpacingOk,
+  requiredGap,
+  pickObstacleType,
 } from './src/logic.js';
 
 let passed = 0;
@@ -199,6 +203,32 @@ check('air: applyFastFall returns strong downward velocity', (() => {
   const r = applyFastFall(risingPlayer);
   return r && r.vy === -CONFIG.fastFallVelocity && r.vy < 0;
 })());
+
+// --- auto-stand: overpassAhead ----------------------------------------------
+const sitter = { x: CONFIG.playerX, width: CONFIG.playerWidth };
+const opOver = { type: OVERPASS, x: CONFIG.playerX }; // directly over the player
+const opAheadNear = { type: OVERPASS, x: CONFIG.playerX + CONFIG.playerWidth + 20 }; // within lookahead
+const opAheadFar = { type: OVERPASS, x: CONFIG.playerX + 400 }; // far ahead
+const opPassed = { type: OVERPASS, x: CONFIG.playerX - CONFIG.overpassWidth - 30 }; // fully behind
+
+check('autostand: overpass over the player counts', overpassAhead(sitter, [opOver]));
+check('autostand: overpass just ahead counts', overpassAhead(sitter, [opAheadNear]));
+check('autostand: overpass far ahead does not count', !overpassAhead(sitter, [opAheadFar]));
+check('autostand: passed overpass does not count', !overpassAhead(sitter, [opPassed]));
+check('autostand: barriers never count', !overpassAhead(sitter, [{ type: BARRIER, x: CONFIG.playerX }]));
+check('autostand: no obstacles -> false', !overpassAhead(sitter, []));
+
+// --- spawn placement --------------------------------------------------------
+check('spawn: spacing not ok when too close', !obstacleSpacingOk(1000, 1100, 480));
+check('spawn: spacing ok when far enough', obstacleSpacingOk(1000, 1500, 480));
+check('spawn: spacing ok with no obstacles (-Infinity)', obstacleSpacingOk(-Infinity, 1200, 900));
+check('spawn: requiredGap after barrier is afterJumpGap', requiredGap(BARRIER) === CONFIG.afterJumpGap);
+check('spawn: requiredGap after overpass is baseObstacleGap', requiredGap(OVERPASS) === CONFIG.baseObstacleGap);
+check('spawn: requiredGap with no prior type is baseObstacleGap', requiredGap(null) === CONFIG.baseObstacleGap);
+check('spawn: pickObstacleType honors rand (barrier)', pickObstacleType(0.2, null, 0) === BARRIER);
+check('spawn: pickObstacleType honors rand (overpass)', pickObstacleType(0.8, null, 0) === OVERPASS);
+check('spawn: pickObstacleType forces switch after 2 barriers', pickObstacleType(0.1, BARRIER, 2) === OVERPASS);
+check('spawn: pickObstacleType forces switch after 2 overpasses', pickObstacleType(0.9, OVERPASS, 2) === BARRIER);
 
 // --- report -----------------------------------------------------------------
 console.log('');
