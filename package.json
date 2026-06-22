@@ -1,0 +1,13 @@
+{
+  "name": "emberline",
+  "version": "1.0.0",
+  "description": "Emberline — a procedurally-rendered, offline-capable endless runner PWA. Vanilla JS + Canvas + Web Audio, no dependencies, no build step.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "icons": "node scripts/generate-icons.mjs",
+    "test": "node test.js",
+    "serve": "python3 -m http.server 8080"
+  },
+  "license": "MIT"
+}

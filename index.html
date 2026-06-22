@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Landscape game: cover the notch, lock zoom so taps/swipes are gameplay. -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Emberline — an offline endless runner toward the frozen sunset." />
+
+  <title>Emberline</title>
+
+  <!-- Theme / palette -->
+  <meta name="theme-color" content="#160b2e" />
+  <link rel="manifest" href="./manifest.json" />
+
+  <!-- Apple: launch fullscreen standalone from Add to Home Screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Emberline" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- The whole game renders here. -->
+  <canvas id="game" aria-label="Emberline game"></canvas>
+
+  <!-- Top HUD overlay (distance, emberlight, mute) -->
+  <div id="hud" class="hud" aria-hidden="true">
+    <div class="hud-left">
+      <span id="distance" class="hud-stat">0 m</span>
+      <span id="ember" class="hud-stat ember">✦ 0</span>
+    </div>
+    <button id="mute" class="mute-btn" type="button" aria-label="Toggle sound">♪</button>
+  </div>
+
+  <!-- READY / start overlay -->
+  <div id="start" class="overlay">
+    <div class="panel">
+      <h1 class="title">EMBERLINE</h1>
+      <p class="tagline">The sun has set for the last time.<br />Run east. Keep the lamps lit.</p>
+      <p class="hint">
+        <strong>Tap</strong> to jump &nbsp;·&nbsp; <strong>Swipe down</strong> to slide<br />
+        <span class="kbd-hint">Desktop: Space / ↑ jump · ↓ slide</span>
+      </p>
+      <button id="startBtn" class="cta" type="button">Begin the run</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER overlay -->
+  <div id="gameover" class="overlay hidden">
+    <div class="panel">
+      <h2 class="title-sm">THE DARK CAUGHT YOU</h2>
+      <div class="results">
+        <div class="result"><span class="result-val" id="finalDistance">0</span><span class="result-label">distance</span></div>
+        <div class="result"><span class="result-val ember" id="finalEmber">0</span><span class="result-label">emberlight</span></div>
+        <div class="result"><span class="result-val best" id="bestDistance">0</span><span class="result-label">best</span></div>
+      </div>
+      <p class="hint" id="newBest" style="display:none">✦ New furthest run ✦</p>
+      <button id="restartBtn" class="cta" type="button">Run again</button>
+      <p class="hint subtle">tap anywhere to restart</p>
+    </div>
+  </div>
+
+  <!-- Rotate-to-landscape overlay (shown in portrait; pauses the game) -->
+  <div id="rotate" class="overlay rotate hidden">
+    <div class="panel">
+      <div class="rotate-icon" aria-hidden="true">⟳</div>
+      <h2 class="title-sm">TURN YOUR DEVICE</h2>
+      <p class="tagline">Emberline runs in landscape.<br />Rotate to keep moving.</p>
+    </div>
+  </div>
+
+  <script type="module" src="./src/game.js"></script>
+</body>
+</html>

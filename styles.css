@@ -1,0 +1,196 @@
+/* Emberline — UI chrome. The game itself is drawn on <canvas>; this styles the
+   overlays, HUD and the rotate prompt, and locks down mobile gestures. */
+
+:root {
+  --indigo: #160b2e;
+  --violet: #3c1450;
+  --magenta: #ff2e88;
+  --magenta-soft: #ff6fb0;
+  --ember: #ffd28c;
+  --ember-hot: #ff8a46;
+  --ink: #0c0718;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* Kill text selection + the iOS tap highlight; gestures are gameplay. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  /* Disable double-tap-to-zoom and pull gestures. */
+  touch-action: none;
+  overscroll-behavior: none;
+  font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #fff;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+/* ---------- HUD ---------- */
+.hud {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: calc(var(--safe-left) + 16px);
+  right: calc(var(--safe-right) + 16px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
+  pointer-events: none;
+}
+.hud-left { display: flex; gap: 18px; align-items: baseline; }
+.hud-stat {
+  font-size: clamp(16px, 3.4vh, 26px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(255, 46, 136, 0.6);
+}
+.hud-stat.ember { color: var(--ember); text-shadow: 0 0 14px rgba(255, 170, 80, 0.85); }
+
+.mute-btn {
+  pointer-events: auto;
+  width: clamp(40px, 7vh, 52px);
+  height: clamp(40px, 7vh, 52px);
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 111, 176, 0.6);
+  background: rgba(20, 8, 36, 0.55);
+  color: var(--magenta-soft);
+  font-size: clamp(18px, 3.4vh, 24px);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: transform 0.12s ease, opacity 0.2s ease;
+}
+.mute-btn:active { transform: scale(0.92); }
+.mute-btn.muted { color: #6a5878; border-color: rgba(120, 100, 140, 0.5); }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(20px, var(--safe-top)) max(20px, var(--safe-right))
+           max(20px, var(--safe-bottom)) max(20px, var(--safe-left));
+  background:
+    radial-gradient(120% 120% at 50% 90%, rgba(255, 46, 136, 0.22), transparent 60%),
+    linear-gradient(180deg, rgba(10, 5, 22, 0.78), rgba(10, 5, 22, 0.92));
+  backdrop-filter: blur(3px);
+  text-align: center;
+  animation: fade-in 0.4s ease both;
+}
+.overlay.hidden { display: none; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.panel {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.title {
+  font-size: clamp(40px, 12vh, 88px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  background: linear-gradient(180deg, #fff 0%, var(--ember) 40%, var(--magenta) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 24px rgba(255, 46, 136, 0.55));
+}
+.title-sm {
+  font-size: clamp(22px, 6vh, 40px);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #fff;
+  text-shadow: 0 0 22px rgba(255, 46, 136, 0.6);
+}
+.tagline {
+  font-size: clamp(14px, 3vh, 20px);
+  line-height: 1.5;
+  color: #d9c9e8;
+  opacity: 0.92;
+}
+.hint {
+  font-size: clamp(12px, 2.4vh, 17px);
+  color: #c9b6dd;
+  line-height: 1.7;
+}
+.hint.subtle { opacity: 0.55; font-size: clamp(11px, 2vh, 14px); }
+.kbd-hint { opacity: 0.6; font-size: 0.85em; }
+
+.cta {
+  margin-top: 6px;
+  padding: 14px 34px;
+  font-size: clamp(15px, 3vh, 20px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--magenta-soft), var(--magenta));
+  box-shadow: 0 0 30px rgba(255, 46, 136, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+.cta:active { transform: scale(0.95); box-shadow: 0 0 18px rgba(255, 46, 136, 0.4); }
+
+/* ---------- Game-over results ---------- */
+.results {
+  display: flex;
+  gap: clamp(18px, 5vw, 44px);
+  margin: 10px 0 4px;
+}
+.result { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.result-val {
+  font-size: clamp(26px, 7vh, 48px);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 16px rgba(255, 46, 136, 0.5);
+}
+.result-val.ember { color: var(--ember); text-shadow: 0 0 16px rgba(255, 170, 80, 0.7); }
+.result-val.best { color: var(--magenta-soft); }
+.result-label {
+  font-size: clamp(10px, 2vh, 13px);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #a892c0;
+}
+
+/* ---------- Rotate prompt ---------- */
+.rotate-icon {
+  font-size: clamp(48px, 14vh, 96px);
+  color: var(--magenta-soft);
+  filter: drop-shadow(0 0 20px rgba(255, 46, 136, 0.6));
+  animation: rock 2.2s ease-in-out infinite;
+}
+@keyframes rock {
+  0%, 100% { transform: rotate(-18deg); }
+  50% { transform: rotate(72deg); }
+}
