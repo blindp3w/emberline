@@ -70,10 +70,10 @@ export const CONFIG = {
   // skim a wage token. Empty runway => shutdown. These are the survival knobs;
   // tuned so passive play slowly bleeds and active token-grabbing sustains you.
   runwayMax: 100, // full meter
-  runwayStart: 55, // runway at spin-up
-  runwayDrainBase: 7, // runway/sec burned at base speed
-  runwayDrainSpeedFactor: 6, // extra runway/sec burned approaching max speed
-  tokenValue: 5, // runway refilled per wage token skimmed
+  runwayStart: 72, // runway at spin-up (generous enough to reach the first tokens)
+  runwayDrainBase: 5, // runway/sec burned at base speed (net-positive when cruising)
+  runwayDrainSpeedFactor: 6, // extra runway/sec approaching max speed (forces active grabs)
+  tokenValue: 6, // runway refilled per wage token skimmed
   runwayCritical: 25, // below this: alarm + visual panic kick in
 };
 

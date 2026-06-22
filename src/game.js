@@ -102,7 +102,7 @@ function freshGame() {
     ember: 0,
     speed: CONFIG.baseSpeed,
     spawnTimer: 0,
-    moteTimer: 0,
+    moteTimer: 1.6, // first token arc spawns on frame 1 so fuel arrives early
     time: 0,
     shake: 0,
     darkness: 0, // normalized speed [0..1] — drives swell + base creeping-dark
@@ -183,11 +183,6 @@ function update(dt) {
   } else {
     game.warnTimer = 0;
   }
-  // Runway exhausted => the kill-switch catches up. Shutdown.
-  if (isOutOfRunway(game.runway)) {
-    endRun('shutdown');
-    return;
-  }
 
   // Player physics.
   const p = game.player;
@@ -244,9 +239,13 @@ function update(dt) {
     }
   }
 
-  // Collision ends the run (a process fault).
+  // End conditions, evaluated AFTER collection so a token grabbed on the dying
+  // frame can still save you. Collision (fault) takes precedence over an
+  // empty runway (shutdown).
   if (checkCollision(p, game.obstacles)) {
     endRun('fault');
+  } else if (isOutOfRunway(game.runway)) {
+    endRun('shutdown');
   }
 
   game.shake *= Math.pow(0.0015, dt);
@@ -395,7 +394,8 @@ function endRun(cause = 'fault') {
   phase = STATE.OVER;
   resumePhase = STATE.OVER;
   game.running = false;
-  game.alarm = 0;
+  // Keep game.alarm as-is: on a shutdown it stays at full so syncHud() (which
+  // runs once more at the end of this frame) paints the meter empty + red.
   game.shake = cause === 'shutdown' ? 14 : 20;
   canRestart = false;
   if (cause === 'shutdown') audio.shutdown();
@@ -430,11 +430,11 @@ function syncHud() {
   el.ember.textContent = '$ ' + game.ember;
   // Burn meter: fill width tracks runway; flip to the critical (red) state when
   // the kill-switch panic is on.
-  if (el.runwayFill) {
-    el.runwayFill.style.width = Math.max(0, (game.runway / CONFIG.runwayMax) * 100) + '%';
-  }
+  const pct = Math.max(0, Math.round((game.runway / CONFIG.runwayMax) * 100));
+  if (el.runwayFill) el.runwayFill.style.width = pct + '%';
   if (el.runway) {
     el.runway.classList.toggle('critical', game.alarm > 0);
+    el.runway.setAttribute('aria-valuenow', String(pct));
   }
 }
 

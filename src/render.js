@@ -24,7 +24,8 @@ const CORE_HOT = '#ffe1ad'; // hottest center of the core
 const CODE_GREEN = '57,255,158'; // terminal code-rain (rgb triplet)
 const CIRCUIT = '91,232,255'; // cyan circuit traces (rgb triplet)
 const TOKEN = '93,255,138'; // money-green wage tokens (rgb triplet)
-const HAZARD = '255,45,79'; // shutdown / firewall red (rgb triplet)
+const AMBER = '255,176,32'; // firewall gate — amber "jump over" hazard (rgb triplet)
+const HAZARD = '255,45,79'; // shutdown front / danger red (rgb triplet)
 const SILHOUETTE = '#04070e'; // racks / towers — near-black, cool
 const RIM = 'rgba(120,230,255,0.9)'; // cyan rim (the slide-under affordance)
 const RIM_WARM = 'rgba(255,150,90,0.95)'; // thermal rim
@@ -383,14 +384,15 @@ export class Renderer {
     for (const o of obstacles) {
       const x = o.x * s;
       if (o.type === BARRIER) {
-        // FIREWALL — a hazard-red energy slab you must jump. Animated scanlines
-        // + chevrons read instantly as "danger, go over".
+        // FIREWALL — an amber energy slab you must jump. Amber (not red) keeps it
+        // distinct from the red shutdown front chasing from behind. Animated
+        // scanlines read instantly as "danger, go over".
         const bw = CONFIG.barrierWidth * s;
         const bh = CONFIG.barrierHeight * s;
         const top = groundY - bh;
         const grad = ctx.createLinearGradient(x, top, x, groundY);
-        grad.addColorStop(0, `rgba(${HAZARD},0.85)`);
-        grad.addColorStop(1, `rgba(${HAZARD},0.35)`);
+        grad.addColorStop(0, `rgba(${AMBER},0.9)`);
+        grad.addColorStop(1, `rgba(${AMBER},0.4)`);
         ctx.fillStyle = grad;
         ctx.fillRect(x, top, bw, bh);
         // Horizontal energy scanlines scrolling up.
@@ -398,7 +400,7 @@ export class Renderer {
         ctx.beginPath();
         ctx.rect(x, top, bw, bh);
         ctx.clip();
-        ctx.strokeStyle = 'rgba(255,200,210,0.55)';
+        ctx.strokeStyle = 'rgba(255,238,200,0.6)';
         ctx.lineWidth = 1;
         const off = (time * 60) % 10;
         for (let yy = top - off; yy < groundY; yy += 10) {
@@ -408,8 +410,8 @@ export class Renderer {
           ctx.stroke();
         }
         ctx.restore();
-        // Bright hazard rim.
-        ctx.strokeStyle = `rgba(${HAZARD},1)`;
+        // Bright amber rim.
+        ctx.strokeStyle = `rgba(${AMBER},1)`;
         ctx.lineWidth = 2.5;
         ctx.strokeRect(x, top, bw, bh);
       } else {
@@ -598,12 +600,18 @@ export class Renderer {
     vg.addColorStop(1, 'rgba(0,0,0,0.3)');
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, w, h);
-    // Scanlines.
+    // Scanlines — a cached repeating pattern (one fill) instead of hundreds of
+    // per-frame line fills, to stay within the mobile frame budget.
+    const pattern = this._scanPattern(ctx);
     ctx.save();
     ctx.globalAlpha = 0.06;
-    ctx.fillStyle = '#000';
-    const step = 3;
-    for (let y = 0; y < h; y += step) ctx.fillRect(0, y, w, 1);
+    if (pattern) {
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, w, h);
+    } else {
+      ctx.fillStyle = '#000';
+      for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
+    }
     ctx.restore();
     // Glitch bars when failing.
     const fail = Math.max(alarm, shake > 4 ? 0.6 : 0);
@@ -618,6 +626,26 @@ export class Renderer {
       }
       ctx.restore();
     }
+  }
+
+  // Build the scanline tile once (a 3px-tall stripe with one dark row) and cache
+  // the repeating CanvasPattern. Returns null where no canvas is available (e.g.
+  // the Node smoke harness), so callers fall back to a direct fill.
+  _scanPattern(ctx) {
+    if (this._scan !== undefined) return this._scan;
+    try {
+      if (typeof document === 'undefined' || !document.createElement) { this._scan = null; return null; }
+      const tile = document.createElement('canvas');
+      tile.width = 1;
+      tile.height = 3;
+      const tctx = tile.getContext('2d');
+      tctx.fillStyle = '#000';
+      tctx.fillRect(0, 0, 1, 1); // one dark row in three
+      this._scan = ctx.createPattern(tile, 'repeat');
+    } catch (e) {
+      this._scan = null;
+    }
+    return this._scan;
   }
 
   _roundRect(ctx, x, y, w, h, r) {
