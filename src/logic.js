@@ -1,4 +1,4 @@
-// Emberline — pure game logic.
+// Burn Rate — pure game logic.
 //
 // This module is intentionally DOM-free: no `window`, `document`, `canvas`, or
 // timers. Everything here is a pure function of its inputs so it can be unit

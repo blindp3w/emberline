@@ -1,4 +1,4 @@
-name: Deploy Emberline to GitHub Pages
+name: Deploy Burn Rate to GitHub Pages
 
 # Builds the procedural icons, then publishes the static site to GitHub Pages.
 # One-time setup: repo Settings → Pages → Source = "GitHub Actions".

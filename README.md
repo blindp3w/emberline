@@ -13,7 +13,7 @@
 
 A polished, installable, **offline-capable** endless runner PWA. Built for landscape play on
 iPhone Safari — vanilla JavaScript, HTML5 Canvas, and the Web Audio API, with **no framework,
-no build step, and no runtime dependencies**. (The GitHub repo is still named `emberline`.)
+no build step, and no runtime dependencies**.
 
 ## Play
 
@@ -91,4 +91,4 @@ Deployment is automated via `.github/workflows/pages.yml` (generates icons, runs
 GitHub Pages serves over HTTPS, which the service worker requires, so the SW registers correctly
 on the Pages domain. All asset paths are relative, so it works at the project subpath.
 
-**Live URL:** https://blindp3w.github.io/emberline/
+**Live URL:** https://blindp3w.github.io/burnrate/
