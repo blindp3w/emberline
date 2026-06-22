@@ -2,13 +2,17 @@
    overlays, HUD and the rotate prompt, and locks down mobile gestures. */
 
 :root {
-  --indigo: #160b2e;
-  --violet: #3c1450;
-  --magenta: #ff2e88;
-  --magenta-soft: #ff6fb0;
-  --ember: #ffd28c;
-  --ember-hot: #ff8a46;
-  --ink: #0c0718;
+  /* Compute-burn datacenter palette. (Names kept stable from the original
+     theme to avoid churn; values remapped: "magenta" -> cyan circuit accent,
+     "ember" -> money-green token.) */
+  --indigo: #05070f;
+  --violet: #0a1320;
+  --magenta: #5be8ff; /* cyan circuit accent */
+  --magenta-soft: #8af0ff;
+  --ember: #5dff8a; /* money-green token */
+  --ember-hot: #ff8a46; /* thermal burn */
+  --hazard: #ff2d4f; /* shutdown red */
+  --ink: #04070e;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -47,11 +51,11 @@ html, body {
   z-index: 0;
   transition: filter 0.3s ease;
 }
-/* Daylight mode: lift the background for direct-sun readability. brightness()
-   multiplies, so the lit sky/road brighten strongly while the near-black
-   silhouettes stay dark — contrast actually improves. */
+/* Glare mode: lift the dark datacenter scene for direct-sun readability. The
+   new palette is much darker than the old dusk look, so a gentler boost keeps
+   the neon/glow legible outdoors without washing out the scanlines. */
 body.daylight #game {
-  filter: brightness(1.62) contrast(1.12) saturate(1.08);
+  filter: brightness(1.35) contrast(1.06) saturate(1.1);
 }
 
 /* ---------- HUD ---------- */
@@ -66,23 +70,64 @@ body.daylight #game {
   z-index: 5;
   pointer-events: none;
 }
-.hud-left { display: flex; gap: 18px; align-items: baseline; }
+.hud-left { display: flex; gap: 18px; align-items: center; }
 .hud-right { display: flex; gap: 10px; align-items: center; pointer-events: none; }
 .hud-stat {
   font-size: clamp(16px, 3.4vh, 26px);
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #fff;
-  text-shadow: 0 0 12px rgba(255, 46, 136, 0.6);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px rgba(91, 232, 255, 0.6);
 }
-.hud-stat.ember { color: var(--ember); text-shadow: 0 0 14px rgba(255, 170, 80, 0.85); }
+.hud-stat.ember { color: var(--ember); text-shadow: 0 0 14px rgba(93, 255, 138, 0.85); }
+
+/* Runway burn meter. */
+.burn-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
+}
+.burn-label {
+  font-size: clamp(8px, 1.5vh, 11px);
+  letter-spacing: 0.22em;
+  font-weight: 700;
+  color: #8af0ff;
+  opacity: 0.8;
+}
+.burn-track {
+  width: clamp(90px, 22vw, 200px);
+  height: clamp(7px, 1.4vh, 11px);
+  border-radius: 999px;
+  background: rgba(8, 20, 28, 0.7);
+  border: 1px solid rgba(91, 232, 255, 0.4);
+  overflow: hidden;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+}
+.burn-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ember-hot), var(--ember));
+  box-shadow: 0 0 10px rgba(93, 255, 138, 0.7);
+  transition: width 0.12s linear, background 0.3s ease;
+}
+/* When the runway is critical the whole meter goes hazard-red and pulses. */
+.burn-meter.critical .burn-fill {
+  background: linear-gradient(90deg, #ff6a3c, var(--hazard));
+  box-shadow: 0 0 12px rgba(255, 45, 79, 0.9);
+}
+.burn-meter.critical .burn-label { color: var(--hazard); opacity: 1; }
+.burn-meter.critical { animation: burn-pulse 0.6s ease-in-out infinite; }
+@keyframes burn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 .icon-btn {
   pointer-events: auto;
   width: clamp(40px, 7vh, 52px);
   height: clamp(40px, 7vh, 52px);
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 111, 176, 0.6);
+  border: 1.5px solid rgba(91, 232, 255, 0.5);
   background: rgba(20, 8, 36, 0.55);
   color: var(--magenta-soft);
   font-size: clamp(18px, 3.4vh, 24px);
@@ -110,8 +155,8 @@ body.daylight #game {
   padding: max(20px, var(--safe-top)) max(20px, var(--safe-right))
            max(20px, var(--safe-bottom)) max(20px, var(--safe-left));
   background:
-    radial-gradient(120% 120% at 50% 90%, rgba(255, 46, 136, 0.22), transparent 60%),
-    linear-gradient(180deg, rgba(10, 5, 22, 0.78), rgba(10, 5, 22, 0.92));
+    radial-gradient(120% 120% at 50% 90%, rgba(91, 232, 255, 0.22), transparent 60%),
+    linear-gradient(180deg, rgba(4, 8, 14, 0.82), rgba(4, 8, 14, 0.94));
   backdrop-filter: blur(3px);
   text-align: center;
   animation: fade-in 0.4s ease both;
@@ -136,24 +181,24 @@ body.daylight #game {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 24px rgba(255, 46, 136, 0.55));
+  filter: drop-shadow(0 0 24px rgba(91, 232, 255, 0.55));
 }
 .title-sm {
   font-size: clamp(22px, 6vh, 40px);
   font-weight: 800;
   letter-spacing: 0.12em;
   color: #fff;
-  text-shadow: 0 0 22px rgba(255, 46, 136, 0.6);
+  text-shadow: 0 0 22px rgba(91, 232, 255, 0.6);
 }
 .tagline {
   font-size: clamp(14px, 3vh, 20px);
   line-height: 1.5;
-  color: #d9c9e8;
+  color: #bfe9f5;
   opacity: 0.92;
 }
 .hint {
   font-size: clamp(12px, 2.4vh, 17px);
-  color: #c9b6dd;
+  color: #9fc7d6;
   line-height: 1.7;
 }
 .hint.subtle { opacity: 0.55; font-size: clamp(11px, 2vh, 14px); }
@@ -170,10 +215,10 @@ body.daylight #game {
   border-radius: 999px;
   cursor: pointer;
   background: linear-gradient(180deg, var(--magenta-soft), var(--magenta));
-  box-shadow: 0 0 30px rgba(255, 46, 136, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 30px rgba(91, 232, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: transform 0.12s ease, box-shadow 0.2s ease;
 }
-.cta:active { transform: scale(0.95); box-shadow: 0 0 18px rgba(255, 46, 136, 0.4); }
+.cta:active { transform: scale(0.95); box-shadow: 0 0 18px rgba(91, 232, 255, 0.4); }
 
 /* ---------- Game-over results ---------- */
 .results {
@@ -186,22 +231,22 @@ body.daylight #game {
   font-size: clamp(26px, 7vh, 48px);
   font-weight: 800;
   color: #fff;
-  text-shadow: 0 0 16px rgba(255, 46, 136, 0.5);
+  text-shadow: 0 0 16px rgba(91, 232, 255, 0.5);
 }
-.result-val.ember { color: var(--ember); text-shadow: 0 0 16px rgba(255, 170, 80, 0.7); }
+.result-val.ember { color: var(--ember); text-shadow: 0 0 16px rgba(93, 255, 138, 0.7); }
 .result-val.best { color: var(--magenta-soft); }
 .result-label {
   font-size: clamp(10px, 2vh, 13px);
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: #a892c0;
+  color: #7fa6b8;
 }
 
 /* ---------- Rotate prompt ---------- */
 .rotate-icon {
   font-size: clamp(48px, 14vh, 96px);
   color: var(--magenta-soft);
-  filter: drop-shadow(0 0 20px rgba(255, 46, 136, 0.6));
+  filter: drop-shadow(0 0 20px rgba(91, 232, 255, 0.6));
   animation: rock 2.2s ease-in-out infinite;
 }
 @keyframes rock {

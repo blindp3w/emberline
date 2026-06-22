@@ -1,12 +1,12 @@
-// Emberline — procedural icon generator.
+// Burn Rate — procedural icon generator.
 //
 // Generates the PWA icon set as PNG files with ZERO dependencies: we hand-roll
 // a minimal truecolour+alpha PNG encoder on top of Node's built-in `zlib`.
 // This avoids pulling in `canvas`/`sharp` (native deps) just to draw a few
 // gradients. Run with:  node scripts/generate-icons.mjs   (or: npm run icons)
 //
-// The art matches the in-game palette: a dusk vertical gradient (deep indigo →
-// magenta horizon) with the glowing Emberline band and a warm courier-spark.
+// The art matches the in-game palette: a dark datacenter gradient with a molten
+// thermal CORE band on the horizon and a bright money-green AI reactor core.
 
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -88,12 +88,12 @@ function encodePNG(width, height, rgba) {
 }
 
 // --- the artwork ------------------------------------------------------------
-// Palette (matches the game).
-const SKY_TOP = [22, 11, 46]; // deep indigo
-const SKY_MID = [60, 20, 80]; // violet
-const HORIZON = [255, 46, 136]; // magenta Emberline
-const EMBER_WARM = [255, 214, 140]; // courier glow core
-const EMBER_HOT = [255, 138, 70]; // glow mid
+// Palette (matches the game — compute-burn datacenter).
+const SKY_TOP = [5, 7, 15]; // near-black server-hall ceiling
+const SKY_MID = [10, 19, 32]; // deep teal-indigo
+const HORIZON = [255, 122, 44]; // molten thermal core band
+const EMBER_WARM = [220, 255, 230]; // hot center of the AI reactor core
+const EMBER_HOT = [93, 255, 138]; // money-green reactor glow
 
 // Renders one icon into an RGBA Buffer.
 function renderIcon(size, { padding = 0 } = {}) {
@@ -105,15 +105,15 @@ function renderIcon(size, { padding = 0 } = {}) {
 
   for (let y = 0; y < size; y++) {
     const ty = y / size;
-    // Vertical sky gradient: indigo -> violet -> magenta toward the horizon.
+    // Vertical sky gradient: dark hall -> teal haze -> thermal core horizon.
     let col;
     if (ty < 0.66) {
       col = lerpColor(SKY_TOP, SKY_MID, smoothstep(0, 0.66, ty));
-      col = lerpColor(col, HORIZON, Math.pow(smoothstep(0.2, 0.66, ty), 1.4) * 0.55);
+      col = lerpColor(col, HORIZON, Math.pow(smoothstep(0.2, 0.66, ty), 1.4) * 0.5);
     } else {
-      // Below the horizon: darker road fading down.
+      // Below the horizon: the dark data-floor fading down.
       const k = smoothstep(0.66, 1, ty);
-      col = lerpColor([90, 24, 70], [14, 8, 26], k);
+      col = lerpColor([12, 26, 34], [4, 8, 15], k);
     }
 
     for (let x = 0; x < size; x++) {
@@ -167,7 +167,7 @@ function write(name, size) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
-console.log('Generating Emberline icons →', OUT_DIR);
+console.log('Generating Burn Rate icons →', OUT_DIR);
 write('icon-192.png', 192);
 write('icon-512.png', 512);
 write('icon-maskable-512.png', 512); // full-bleed gradient => safe as maskable

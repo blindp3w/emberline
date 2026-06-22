@@ -21,12 +21,17 @@ import {
   obstacleSpacingOk,
   requiredGap,
   pickObstacleType,
+  runwayDrainAt,
+  drainRunway,
+  refillRunway,
+  isOutOfRunway,
+  runwayPressure,
 } from './logic.js';
 import { Renderer } from './render.js';
 import { Audio } from './audio.js';
 
-const BEST_KEY = 'emberline.best';
-const DAYLIGHT_KEY = 'emberline.daylight';
+const BEST_KEY = 'burnrate.best';
+const DAYLIGHT_KEY = 'burnrate.glare';
 
 // --- DOM ---------------------------------------------------------------------
 const canvas = document.getElementById('game');
@@ -37,12 +42,15 @@ const audio = new Audio();
 const el = {
   distance: document.getElementById('distance'),
   ember: document.getElementById('ember'),
+  runway: document.getElementById('runway'), // burn-meter wrapper (gets .critical)
+  runwayFill: document.getElementById('runwayFill'), // depleting bar fill
   mute: document.getElementById('mute'),
   daylight: document.getElementById('daylight'),
   hud: document.getElementById('hud'),
   start: document.getElementById('start'),
   startBtn: document.getElementById('startBtn'),
   gameover: document.getElementById('gameover'),
+  gameoverTitle: document.getElementById('gameoverTitle'),
   restartBtn: document.getElementById('restartBtn'),
   finalDistance: document.getElementById('finalDistance'),
   finalEmber: document.getElementById('finalEmber'),
@@ -97,7 +105,10 @@ function freshGame() {
     moteTimer: 0,
     time: 0,
     shake: 0,
-    darkness: 0,
+    darkness: 0, // normalized speed [0..1] — drives swell + base creeping-dark
+    runway: CONFIG.runwayStart, // compute budget; empty => shutdown
+    alarm: 0, // runway pressure [0..1] — drives the kill-switch panic FX
+    warnTimer: 0, // throttles the low-runway alarm beep
     running: false,
     lastObstacleType: null,
     sameTypeRun: 0,
@@ -159,6 +170,25 @@ function update(dt) {
   game.darkness = Math.max(0, Math.min(1, norm));
   audio.setSwell(game.darkness);
 
+  // Burn the runway (faster the harder you run). Refilled by skimming tokens.
+  game.runway = drainRunway(game.runway, dt, runwayDrainAt(game.speed));
+  game.alarm = runwayPressure(game.runway); // separate channel for the panic FX
+  // Low-runway warning: a periodic alarm beep while critical.
+  if (game.alarm > 0) {
+    game.warnTimer -= dt;
+    if (game.warnTimer <= 0) {
+      audio.warn(game.alarm);
+      game.warnTimer = 0.7 - game.alarm * 0.35; // beeps quicken as it empties
+    }
+  } else {
+    game.warnTimer = 0;
+  }
+  // Runway exhausted => the kill-switch catches up. Shutdown.
+  if (isOutOfRunway(game.runway)) {
+    endRun('shutdown');
+    return;
+  }
+
   // Player physics.
   const p = game.player;
   if (!p.onGround) {
@@ -180,11 +210,13 @@ function update(dt) {
     spawnObstacle();
   }
 
-  // Spawn emberlight arcs on their own slower cadence.
+  // Spawn wage-token arcs on their own slower cadence. Tokens are now survival
+  // fuel, so keep them frequent — each arc's low end-tokens are grabbable
+  // without jumping, while the high ones reward a jump.
   game.moteTimer += dt;
   if (game.moteTimer >= 1.6) {
     game.moteTimer = 0;
-    if (Math.random() < 0.8) spawnMoteArc();
+    if (Math.random() < 0.9) spawnMoteArc();
   }
 
   // Scroll & cull.
@@ -201,19 +233,20 @@ function update(dt) {
     else if (p.needSitUnderpass) standUp();
   }
 
-  // Collect motes.
+  // Skim wage tokens: bump the score counter AND refill the runway.
   for (const m of game.motes) {
     if (!m.collected && collectsMote(p, m)) {
       m.collected = true;
       game.ember = addEmberlight(game.ember);
+      game.runway = refillRunway(game.runway);
       audio.pickup();
       spawnPickupSparks(m.x * view.scale, m.y * view.scale);
     }
   }
 
-  // Collision ends the run.
+  // Collision ends the run (a process fault).
   if (checkCollision(p, game.obstacles)) {
-    endRun();
+    endRun('fault');
   }
 
   game.shake *= Math.pow(0.0015, dt);
@@ -233,6 +266,7 @@ function spawnPickupSparks(sx, sy) {
       size: 2 + Math.random() * 3,
       life: 0.5 + Math.random() * 0.4,
       maxLife: 0.9,
+      tint: [120, 255, 170], // money-green token spark
     });
   }
 }
@@ -253,6 +287,7 @@ function spawnBoostSparks() {
       size: 2 + Math.random() * 2.5,
       life: 0.35 + Math.random() * 0.3,
       maxLife: 0.65,
+      tint: [255, 170, 90], // thermal exhaust from the boost
     });
   }
 }
@@ -354,14 +389,20 @@ function startGame() {
   syncHud();
 }
 
-function endRun() {
+// `cause` is 'fault' (crashed into a firewall/cable) or 'shutdown' (runway hit
+// zero — the kill-switch caught up). Each gets its own headline + SFX.
+function endRun(cause = 'fault') {
   phase = STATE.OVER;
   resumePhase = STATE.OVER;
   game.running = false;
-  game.shake = 20;
+  game.alarm = 0;
+  game.shake = cause === 'shutdown' ? 14 : 20;
   canRestart = false;
-  audio.hit();
+  if (cause === 'shutdown') audio.shutdown();
+  else audio.hit();
   audio.stopSwell();
+
+  el.gameoverTitle.textContent = cause === 'shutdown' ? 'RUNWAY EXHAUSTED' : 'PROCESS FAULTED';
 
   const dist = scoreFromDistance(game.distance);
   const isBest = dist > best;
@@ -386,7 +427,15 @@ function endRun() {
 
 function syncHud() {
   el.distance.textContent = scoreFromDistance(game.distance) + ' m';
-  el.ember.textContent = '✦ ' + game.ember;
+  el.ember.textContent = '$ ' + game.ember;
+  // Burn meter: fill width tracks runway; flip to the critical (red) state when
+  // the kill-switch panic is on.
+  if (el.runwayFill) {
+    el.runwayFill.style.width = Math.max(0, (game.runway / CONFIG.runwayMax) * 100) + '%';
+  }
+  if (el.runway) {
+    el.runway.classList.toggle('critical', game.alarm > 0);
+  }
 }
 
 // --- Input -------------------------------------------------------------------
@@ -451,11 +500,11 @@ function toggleMute() {
   el.mute.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
 }
 
-// Daylight mode brightens the scene for outdoor/direct-sun play. Defaults ON.
+// Glare mode lifts the scene for outdoor/direct-sun play. Defaults ON.
 function applyDaylight(on) {
   document.body.classList.toggle('daylight', on);
   el.daylight.classList.toggle('active', on);
-  el.daylight.setAttribute('aria-label', on ? 'Switch to night mode' : 'Switch to daylight mode');
+  el.daylight.setAttribute('aria-label', on ? 'Switch to dark mode' : 'Switch to glare mode');
   localStorage.setItem(DAYLIGHT_KEY, on ? '1' : '0');
 }
 
@@ -501,8 +550,8 @@ function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then(
-      (reg) => console.log('[Emberline] service worker registered:', reg.scope),
-      (err) => console.warn('[Emberline] service worker failed:', err)
+      (reg) => console.log('[Burn Rate] service worker registered:', reg.scope),
+      (err) => console.warn('[Burn Rate] service worker failed:', err)
     );
   });
 }

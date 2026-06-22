@@ -26,6 +26,11 @@ import {
   obstacleSpacingOk,
   requiredGap,
   pickObstacleType,
+  runwayDrainAt,
+  drainRunway,
+  refillRunway,
+  isOutOfRunway,
+  runwayPressure,
 } from './src/logic.js';
 
 let passed = 0;
@@ -229,6 +234,41 @@ check('spawn: pickObstacleType honors rand (barrier)', pickObstacleType(0.2, nul
 check('spawn: pickObstacleType honors rand (overpass)', pickObstacleType(0.8, null, 0) === OVERPASS);
 check('spawn: pickObstacleType forces switch after 2 barriers', pickObstacleType(0.1, BARRIER, 2) === OVERPASS);
 check('spawn: pickObstacleType forces switch after 2 overpasses', pickObstacleType(0.9, OVERPASS, 2) === BARRIER);
+
+// --- runway / burn meter ----------------------------------------------------
+check('runway: drainAt equals base at baseSpeed', approx(runwayDrainAt(CONFIG.baseSpeed), CONFIG.runwayDrainBase));
+check('runway: drainAt equals base+factor at maxSpeed', approx(runwayDrainAt(CONFIG.maxSpeed), CONFIG.runwayDrainBase + CONFIG.runwayDrainSpeedFactor));
+check('runway: drainAt never below base', runwayDrainAt(-1000) >= CONFIG.runwayDrainBase - 1e-9);
+check('runway: drainAt clamps above maxSpeed', approx(runwayDrainAt(CONFIG.maxSpeed * 10), CONFIG.runwayDrainBase + CONFIG.runwayDrainSpeedFactor));
+check('runway: drainAt increases with speed', (() => {
+  let prev = -Infinity;
+  for (let s = CONFIG.baseSpeed; s <= CONFIG.maxSpeed; s += 40) {
+    const d = runwayDrainAt(s);
+    if (d < prev - 1e-9) return false;
+    prev = d;
+  }
+  return true;
+})());
+
+check('runway: drainRunway reduces by drain*dt', approx(drainRunway(50, 0.5, 10), 45));
+check('runway: drainRunway clamps at zero', drainRunway(3, 1, 10) === 0);
+check('runway: drainRunway frame-rate independent', approx(
+  drainRunway(drainRunway(50, 0.25, 12), 0.25, 12),
+  drainRunway(50, 0.5, 12)
+));
+
+check('runway: refillRunway adds the default token value', refillRunway(40) === 40 + CONFIG.tokenValue);
+check('runway: refillRunway adds a custom amount', refillRunway(40, 8) === 48);
+check('runway: refillRunway clamps at max', refillRunway(CONFIG.runwayMax - 2, 10) === CONFIG.runwayMax);
+
+check('runway: isOutOfRunway true at zero', isOutOfRunway(0));
+check('runway: isOutOfRunway true below zero', isOutOfRunway(-0.01));
+check('runway: isOutOfRunway false when fuel remains', !isOutOfRunway(0.5));
+
+check('runway: pressure is 0 at/above critical', runwayPressure(CONFIG.runwayCritical) === 0 && runwayPressure(CONFIG.runwayMax) === 0);
+check('runway: pressure is 1 when empty', runwayPressure(0) === 1);
+check('runway: pressure half-way through critical band', approx(runwayPressure(CONFIG.runwayCritical / 2), 0.5));
+check('runway: pressure rises as runway falls', runwayPressure(CONFIG.runwayCritical * 0.25) > runwayPressure(CONFIG.runwayCritical * 0.75));
 
 // --- report -----------------------------------------------------------------
 console.log('');

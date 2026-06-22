@@ -61,9 +61,20 @@ export const CONFIG = {
   overpassThickness: 70,
   overpassWidth: 70,
 
-  // Emberlight motes.
+  // Wage tokens (skimmed paychecks). `moteValue` is the score-counter increment.
   moteRadius: 14,
   moteValue: 1,
+
+  // Runway / burn meter — the AI's compute budget. It drains every second
+  // (faster the harder you run, i.e. more tokens burned) and refills when you
+  // skim a wage token. Empty runway => shutdown. These are the survival knobs;
+  // tuned so passive play slowly bleeds and active token-grabbing sustains you.
+  runwayMax: 100, // full meter
+  runwayStart: 55, // runway at spin-up
+  runwayDrainBase: 7, // runway/sec burned at base speed
+  runwayDrainSpeedFactor: 6, // extra runway/sec burned approaching max speed
+  tokenValue: 5, // runway refilled per wage token skimmed
+  runwayCritical: 25, // below this: alarm + visual panic kick in
 };
 
 // --- Geometry ---------------------------------------------------------------
@@ -234,4 +245,40 @@ export function collectsMote(player, mote, groundY = WORLD.groundY) {
   const dy = mote.y - nearestY;
   const r = mote.r || CONFIG.moteRadius;
   return dx * dx + dy * dy <= r * r;
+}
+
+// --- Runway / burn meter ----------------------------------------------------
+// The AI's compute runway. Drain accelerates with speed (more speed = more
+// tokens burned), mirroring how speedAt scales with distance. All pure.
+
+// Runway burned per second at the given speed: baseSpeed -> drainBase,
+// asymptotically approaching drainBase + drainSpeedFactor at maxSpeed.
+export function runwayDrainAt(speed, cfg = CONFIG) {
+  const t = Math.max(0, Math.min(1, (speed - cfg.baseSpeed) / (cfg.maxSpeed - cfg.baseSpeed)));
+  return cfg.runwayDrainBase + cfg.runwayDrainSpeedFactor * t;
+}
+
+// Apply one frame of drain. Clamped at 0 (never negative).
+export function drainRunway(runway, dt, drainPerSec) {
+  return Math.max(0, runway - drainPerSec * dt);
+}
+
+// Refill on a skimmed token. Clamped at runwayMax.
+export function refillRunway(runway, amount = CONFIG.tokenValue, max = CONFIG.runwayMax) {
+  return Math.min(max, runway + amount);
+}
+
+// Shutdown trigger: the runway has run dry.
+export function isOutOfRunway(runway) {
+  return runway <= 0;
+}
+
+// Normalized "how close to shutdown" signal in [0..1] (1 == empty). This is a
+// SEPARATE channel from the speed-driven darkness/swell, so the kill-switch
+// panic (alarm + red shutdown front) has its own intensity that tracks runway.
+export function runwayPressure(runway, cfg = CONFIG) {
+  const c = cfg.runwayCritical;
+  if (runway >= c) return 0;
+  if (runway <= 0) return 1;
+  return 1 - runway / c;
 }

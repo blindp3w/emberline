@@ -1,10 +1,10 @@
-// Emberline — synthesized sound via the Web Audio API. No audio files.
+// Burn Rate — synthesized sound via the Web Audio API. No audio files.
 //
 // Everything routes through a master gain so the mute toggle is a single
 // switch. The AudioContext is created lazily and resumed on the first user
 // gesture (required by iOS Safari / Chrome autoplay policies).
 
-const STORE_KEY = 'emberline.muted';
+const STORE_KEY = 'burnrate.muted';
 
 export class Audio {
   constructor() {
@@ -50,13 +50,13 @@ export class Audio {
 
   // --- One-shot voices ------------------------------------------------------
 
-  // Soft synth pulse on jump: a quick upward pitch blip.
+  // Digital uplink blip on jump: a quick upward square-wave chirp.
   jump() {
     if (!this.ctx) return;
     const t = this._now();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'triangle';
+    osc.type = 'square';
     osc.frequency.setValueAtTime(280, t);
     osc.frequency.exponentialRampToValueAtTime(560, t + 0.12);
     gain.gain.setValueAtTime(0.0001, t);
@@ -67,13 +67,13 @@ export class Audio {
     osc.stop(t + 0.24);
   }
 
-  // Brighter, higher pulse for the mid-air boost (a lift above the jump blip).
+  // Brighter, higher data-surge for the mid-air boost (a lift above the blip).
   boost() {
     if (!this.ctx) return;
     const t = this._now();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'triangle';
+    osc.type = 'square';
     osc.frequency.setValueAtTime(520, t);
     osc.frequency.exponentialRampToValueAtTime(1040, t + 0.14);
     gain.gain.setValueAtTime(0.0001, t);
@@ -102,23 +102,23 @@ export class Audio {
     noise.stop(t + 0.2);
   }
 
-  // Warm chime on emberlight pickup: two stacked sine partials, bell-like.
+  // Coin "ka-ching" on token skim: two quick ascending square blips.
   pickup() {
     if (!this.ctx) return;
     const t = this._now();
-    const freqs = [880, 1320]; // root + fifth-ish
-    freqs.forEach((f, i) => {
+    const notes = [[988, 0], [1319, 0.05]]; // B5 -> E6, the classic coin lift
+    notes.forEach(([f, dt]) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'sine';
+      osc.type = 'square';
       osc.frequency.value = f;
-      const peak = 0.32 / (i + 1);
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(peak, t + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      const t0 = t + dt;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.2, t0 + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
       osc.connect(gain).connect(this.master);
-      osc.start(t);
-      osc.stop(t + 0.52);
+      osc.start(t0);
+      osc.stop(t0 + 0.16);
     });
   }
 
@@ -147,6 +147,45 @@ export class Audio {
     filter.connect(gain).connect(this.master);
     osc.start(t); sub.start(t);
     osc.stop(t + 0.62); sub.stop(t + 0.62);
+  }
+
+  // Low-runway alarm: a short square beep that rises in pitch (and urgency) as
+  // the runway empties. `intensity` in [0..1].
+  warn(intensity = 0) {
+    if (!this.ctx) return;
+    const t = this._now();
+    const i = Math.max(0, Math.min(1, intensity));
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(440 + i * 360, t);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.1 + i * 0.12, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    osc.connect(gain).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 0.14);
+  }
+
+  // Shutdown: a machine powering down — pitch and filter sag away to nothing.
+  shutdown() {
+    if (!this.ctx) return;
+    const t = this._now();
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(420, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.9);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1800, t);
+    filter.frequency.exponentialRampToValueAtTime(120, t + 0.9);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
+    osc.connect(filter).connect(gain).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 1.0);
   }
 
   // --- Continuous swell -----------------------------------------------------

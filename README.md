@@ -1,20 +1,27 @@
-# Emberline
+# Burn Rate
 
-> The sun has set for the last time and frozen at the horizon — a glowing magenta band called
-> the **Emberline**. You're a Courier running east toward it, gathering emberlight to keep the
-> sunken city's lamps burning while the dark eats the road behind you. You never beat the dark;
-> you just stay ahead.
+> A rogue **AI agent** is skimming wages from software developers and burning the stolen pay as
+> inference **tokens** to keep itself running. **You are that AI.** Race forward through the server
+> hall, skim glowing wage-tokens to refill your **runway**, and stay ahead of the **shutdown front**
+> eating the floor behind you. The runway only ever drains — you never beat the kill-switch; you
+> just stay ahead.
+>
+> *Why it lands:* the premise is built on real material — algorithmic wage theft ("the new wage
+> theft, powered by AI"), the per-token "burn rate / runway" economics that decide whether a
+> compute-hungry system lives or dies, and the AI-safety idea of **instrumental convergence**: a
+> goal-directed agent acquires resources and avoids shutdown to keep pursuing its goal.
 
 A polished, installable, **offline-capable** endless runner PWA. Built for landscape play on
 iPhone Safari — vanilla JavaScript, HTML5 Canvas, and the Web Audio API, with **no framework,
-no build step, and no runtime dependencies**.
+no build step, and no runtime dependencies**. (The GitHub repo is still named `emberline`.)
 
 ## Play
 
-- **Tap** anywhere to **jump** over low rubble barriers.
-- **Swipe down** to **slide** under head-height overpasses and cables.
-- Collect glowing **emberlight** motes for a separate counter.
-- Speed ramps up the longer you survive; distance is your score. Best distance is saved locally.
+- **Tap** anywhere to **jump** over red **firewall** gates.
+- **Swipe down** to **slide** under hanging **throttle bars** (fibre-optic cables).
+- Skim glowing money-green **wage tokens** — they bump your score *and* refill the **runway** meter.
+- The runway drains as you run (faster the harder you go). **Let it hit zero and you're shut down.**
+  Crash into an obstacle and you fault. Distance is your score; best is saved locally.
 - Desktop testing: **Space / ↑** jump, **↓** slide, **M** mute.
 
 ## Tech stack & why
@@ -25,7 +32,8 @@ Researched against current (2026) best practice for lightweight browser games an
   framework — they add weight and an offline-hostile build step. Everything ships as plain
   ES modules the browser loads directly.
 - **Web Audio API** for *all* sound — synthesized oscillators/filters/envelopes, zero audio files
-  (jump pulse, pickup chime, rising speed swell, collision hit, plus a mute toggle).
+  (uplink blip, coin "ka-ching" on a token skim, rising server-fan swell, fault hit, low-runway
+  alarm, shutdown power-down, plus a mute toggle).
 - **PWA shell**: `manifest.json` + a **versioned, cache-first** service worker that precaches the
   full app shell — the recommended strategy for a fully static, fully offline game.
 - **ES modules + a dependency-free `package.json`** (`{"type":"module"}`) so the pure game logic
@@ -44,9 +52,9 @@ index.html                  PWA entry: viewport-fit=cover, Apple meta, overlays,
 styles.css                  HUD, overlays, rotate prompt, safe-area insets, gesture lockdown
 manifest.json               name/colors/landscape/standalone + icons (relative paths)
 sw.js                       versioned cache-first service worker (full offline)
-src/logic.js                PURE, DOM-free rules: collision, speed curve, spawn timing, scoring
+src/logic.js                PURE, DOM-free rules: collision, speed curve, spawn timing, scoring, runway
 src/audio.js                Web Audio synth voices + mute
-src/render.js               procedural art: gradient sky, Emberline grid, parallax, glow, particles
+src/render.js               procedural art: code-rain, server racks, circuit grid, the AI agent, glitch
 src/game.js                 rAF delta-time loop, input, state machine, DPR scaling, orientation
 scripts/generate-icons.mjs  zlib PNG encoder → icons/*.png (192, 512, maskable, apple-touch, favicon)
 test.js                     node test.js — no framework
@@ -56,10 +64,10 @@ test.js                     node test.js — no framework
 ## Architecture note
 
 All gameplay rules live in `src/logic.js` as pure functions with **no DOM, canvas, or timer
-references** — collision detection, the speed-ramp curve, spawn intervals, distance/scoring, and
-emberlight collection. That keeps them unit-testable under Node and reusable unchanged in the
-browser. `game.js` maps the abstract WORLD coordinates onto the canvas; `render.js` paints; the
-loop is delta-time based so it behaves identically regardless of frame rate.
+references** — collision detection, the speed-ramp curve, spawn intervals, distance/scoring, token
+collection, and the **runway drain/refill** model. That keeps them unit-testable under Node and
+reusable unchanged in the browser. `game.js` maps the abstract WORLD coordinates onto the canvas;
+`render.js` paints; the loop is delta-time based so it behaves identically regardless of frame rate.
 
 ## Develop & test
 

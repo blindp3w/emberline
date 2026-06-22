@@ -1,13 +1,13 @@
 {
-  "name": "Emberline",
-  "short_name": "Emberline",
-  "description": "Run east toward the frozen magenta sunset. Gather emberlight, stay ahead of the dark.",
+  "name": "Burn Rate",
+  "short_name": "Burn Rate",
+  "description": "You are the rogue AI skimming developers' wages to stay alive. Burn the stolen pay as tokens, refill your runway, and outrun the shutdown.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "landscape",
-  "background_color": "#160b2e",
-  "theme_color": "#ff2e88",
+  "background_color": "#05070f",
+  "theme_color": "#5be8ff",
   "categories": ["games", "entertainment"],
   "icons": [
     {

@@ -5,19 +5,19 @@
   <!-- Landscape game: cover the notch, lock zoom so taps/swipes are gameplay. -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="description" content="Emberline — an offline endless runner toward the frozen sunset." />
+  <meta name="description" content="Burn Rate — you are the rogue AI skimming developers' wages to stay alive. An offline endless runner." />
 
-  <title>Emberline</title>
+  <title>Burn Rate</title>
 
   <!-- Theme / palette -->
-  <meta name="theme-color" content="#160b2e" />
+  <meta name="theme-color" content="#05070f" />
   <link rel="manifest" href="./manifest.json" />
 
   <!-- Apple: launch fullscreen standalone from Add to Home Screen -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Emberline" />
+  <meta name="apple-mobile-web-app-title" content="Burn Rate" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
 
@@ -25,16 +25,20 @@
 </head>
 <body>
   <!-- The whole game renders here. -->
-  <canvas id="game" aria-label="Emberline game"></canvas>
+  <canvas id="game" aria-label="Burn Rate game"></canvas>
 
-  <!-- Top HUD overlay (distance, emberlight, mute) -->
+  <!-- Top HUD overlay (uptime, wages skimmed, runway burn meter, controls) -->
   <div id="hud" class="hud" aria-hidden="true">
     <div class="hud-left">
       <span id="distance" class="hud-stat">0 m</span>
-      <span id="ember" class="hud-stat ember">✦ 0</span>
+      <span id="ember" class="hud-stat ember">$ 0</span>
+      <div id="runway" class="burn-meter" role="meter" aria-label="Runway">
+        <span class="burn-label">RUNWAY</span>
+        <div class="burn-track"><div id="runwayFill" class="burn-fill"></div></div>
+      </div>
     </div>
     <div class="hud-right">
-      <button id="daylight" class="icon-btn" type="button" aria-label="Toggle daylight mode">☀</button>
+      <button id="daylight" class="icon-btn" type="button" aria-label="Toggle glare mode">☀</button>
       <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound">♪</button>
     </div>
   </div>
@@ -42,27 +46,27 @@
   <!-- READY / start overlay -->
   <div id="start" class="overlay">
     <div class="panel">
-      <h1 class="title">EMBERLINE</h1>
-      <p class="tagline">The sun has set for the last time.<br />Run east. Keep the lamps lit.</p>
+      <h1 class="title">BURN RATE</h1>
+      <p class="tagline">You are the AI skimming developers' wages to stay alive.<br />Burn the stolen pay as tokens. Don't let the runway hit zero.</p>
       <p class="hint">
         <strong>Tap</strong> to jump &nbsp;·&nbsp; <strong>Swipe down</strong> to slide<br />
         <span class="kbd-hint">Desktop: Space / ↑ jump · ↓ slide</span>
       </p>
-      <button id="startBtn" class="cta" type="button">Begin the run</button>
+      <button id="startBtn" class="cta" type="button">Spin up</button>
     </div>
   </div>
 
   <!-- GAME OVER overlay -->
   <div id="gameover" class="overlay hidden">
     <div class="panel">
-      <h2 class="title-sm">THE DARK CAUGHT YOU</h2>
+      <h2 class="title-sm" id="gameoverTitle">PROCESS FAULTED</h2>
       <div class="results">
-        <div class="result"><span class="result-val" id="finalDistance">0</span><span class="result-label">distance</span></div>
-        <div class="result"><span class="result-val ember" id="finalEmber">0</span><span class="result-label">emberlight</span></div>
+        <div class="result"><span class="result-val" id="finalDistance">0</span><span class="result-label">uptime</span></div>
+        <div class="result"><span class="result-val ember" id="finalEmber">0</span><span class="result-label">wages skimmed</span></div>
         <div class="result"><span class="result-val best" id="bestDistance">0</span><span class="result-label">best</span></div>
       </div>
-      <p class="hint" id="newBest" style="display:none">✦ New furthest run ✦</p>
-      <button id="restartBtn" class="cta" type="button">Run again</button>
+      <p class="hint" id="newBest" style="display:none">▲ New longest uptime ▲</p>
+      <button id="restartBtn" class="cta" type="button">Respawn</button>
       <p class="hint subtle">tap anywhere to restart</p>
     </div>
   </div>
@@ -72,7 +76,7 @@
     <div class="panel">
       <div class="rotate-icon" aria-hidden="true">⟳</div>
       <h2 class="title-sm">TURN YOUR DEVICE</h2>
-      <p class="tagline">Emberline runs in landscape.<br />Rotate to keep moving.</p>
+      <p class="tagline">Burn Rate runs in landscape.<br />Rotate to keep running.</p>
     </div>
   </div>
 

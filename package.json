@@ -1,7 +1,7 @@
 {
   "name": "emberline",
   "version": "1.0.0",
-  "description": "Emberline — a procedurally-rendered, offline-capable endless runner PWA. Vanilla JS + Canvas + Web Audio, no dependencies, no build step.",
+  "description": "Burn Rate — a procedurally-rendered, offline-capable endless runner PWA where you play a rogue AI skimming developer wages to stay alive. Vanilla JS + Canvas + Web Audio, no dependencies, no build step.",
   "type": "module",
   "private": true,
   "scripts": {
