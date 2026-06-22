@@ -3,10 +3,10 @@
 // changes at runtime and has no network data), with stale caches purged on
 // activate. Bump CACHE_VERSION on any asset change to invalidate old caches.
 
-const CACHE_VERSION = 'emberline-v13';
+const CACHE_VERSION = 'burnrate-v1';
 
 // All paths are RELATIVE so the SW works both at the domain root and at a
-// GitHub Pages project subpath (e.g. /emberline/). `self.registration.scope`
+// GitHub Pages project subpath (e.g. /burnrate/). `self.registration.scope`
 // anchors them correctly.
 const ASSETS = [
   './',

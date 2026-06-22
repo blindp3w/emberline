@@ -121,7 +121,7 @@ function renderIcon(size, { padding = 0 } = {}) {
       let g = col[1];
       let b = col[2];
 
-      // Emberline horizon band glow (additive, magenta).
+      // Burn Rate horizon band glow (additive, magenta).
       const distH = Math.abs(y - horizonY) / (size * 0.10);
       const band = Math.exp(-distH * distH) * 0.9;
       r += HORIZON[0] * band * 0.6;

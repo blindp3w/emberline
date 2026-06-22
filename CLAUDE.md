@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Emberline — a procedurally-rendered, offline-capable endless-runner PWA, played in landscape on
+Burn Rate — a procedurally-rendered, offline-capable endless-runner PWA, played in landscape on
 iPhone Safari. `README.md` has the full feature/architecture overview, play instructions, and the
 live URL; this file is the operating manual for working in the repo.
 
@@ -40,10 +40,10 @@ Tuning constants (velocities, gaps, spawn cadence, palette timings) live in the 
 ## Conventions that bite if ignored
 
 - **Bump `CACHE_VERSION` in `sw.js` on ANY shipped asset change.** The service worker is
-  cache-first, so without a bump returning users keep serving stale JS/CSS. Format `emberline-vN`;
+  cache-first, so without a bump returning users keep serving stale JS/CSS. Format `burnrate-vN`;
   increment N.
 - **All asset paths are relative (`./…`).** The site is served from a GitHub Pages subpath
-  (`/emberline/`); absolute `/…` paths break there.
+  (`/burnrate/`); absolute `/…` paths break there.
 - **Coordinate model:** logic uses a virtual `WORLD` (1280×720, `groundY` 560) where y grows
   **downward**. The renderer maps WORLD→screen via `view.scale = cssHeight / WORLD.height`. The
   runner is fixed at `worldX`; obstacles and motes scroll left.

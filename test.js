@@ -1,4 +1,4 @@
-// Emberline — unit tests. No framework. Run with: node test.js
+// Burn Rate — unit tests. No framework. Run with: node test.js
 //
 // Covers the pure logic in src/logic.js: collision detection, the speed-ramp
 // curve, spawn timing, distance/score, and emberlight collection & scoring.
@@ -272,7 +272,7 @@ check('runway: pressure rises as runway falls', runwayPressure(CONFIG.runwayCrit
 
 // --- report -----------------------------------------------------------------
 console.log('');
-console.log(`Emberline tests: ${passed} passed, ${failed} failed.`);
+console.log(`Burn Rate tests: ${passed} passed, ${failed} failed.`);
 if (failed > 0) {
   console.log('Failed: ' + failures.join(', '));
   process.exit(1);

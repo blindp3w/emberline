@@ -1,4 +1,4 @@
-// Emberline — main game module. Owns the canvas, the rAF loop (delta-time,
+// Burn Rate — main game module. Owns the canvas, the rAF loop (delta-time,
 // frame-rate independent), input, the state machine, and spawning. All the
 // pure rules live in logic.js; drawing lives in render.js; sound in audio.js.
 
