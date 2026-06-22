@@ -13,9 +13,9 @@ import { WORLD, CONFIG, BARRIER } from './logic.js';
 // Palette --------------------------------------------------------------------
 // Tuned for readability in bright ambient light: lifted background midtones and
 // brighter accents so the high-contrast silhouettes/rims pop outdoors.
-const SKY_TOP = '#2a1656';
-const SKY_MID = '#4a2078';
-const SKY_LOW = '#9a2f7e';
+const SKY_TOP = '#3c2278';
+const SKY_MID = '#642e9a';
+const SKY_LOW = '#bb3f92';
 const MAGENTA = '#ff3d93';
 const MAGENTA_SOFT = '#ff86bd';
 const EMBER = '#ffe0a6';

@@ -20,6 +20,7 @@ import { Renderer } from './render.js';
 import { Audio } from './audio.js';
 
 const BEST_KEY = 'emberline.best';
+const DAYLIGHT_KEY = 'emberline.daylight';
 
 // --- DOM ---------------------------------------------------------------------
 const canvas = document.getElementById('game');
@@ -31,6 +32,7 @@ const el = {
   distance: document.getElementById('distance'),
   ember: document.getElementById('ember'),
   mute: document.getElementById('mute'),
+  daylight: document.getElementById('daylight'),
   hud: document.getElementById('hud'),
   start: document.getElementById('start'),
   startBtn: document.getElementById('startBtn'),
@@ -306,8 +308,8 @@ function onTouchStart(e) {
 }
 
 function onTouchEnd(e) {
-  // Ignore taps on the mute button (handled separately).
-  if (e.target === el.mute) return;
+  // Ignore taps on the HUD buttons (handled separately).
+  if (e.target === el.mute || e.target === el.daylight) return;
   e.preventDefault();
 
   if (phase === STATE.READY) return startGame();
@@ -346,6 +348,19 @@ function toggleMute() {
   el.mute.classList.toggle('muted', muted);
   el.mute.textContent = muted ? '♪̸' : '♪';
   el.mute.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+}
+
+// Daylight mode brightens the scene for outdoor/direct-sun play. Defaults ON.
+function applyDaylight(on) {
+  document.body.classList.toggle('daylight', on);
+  el.daylight.classList.toggle('active', on);
+  el.daylight.setAttribute('aria-label', on ? 'Switch to night mode' : 'Switch to daylight mode');
+  localStorage.setItem(DAYLIGHT_KEY, on ? '1' : '0');
+}
+
+function toggleDaylight() {
+  const on = !document.body.classList.contains('daylight');
+  applyDaylight(on);
 }
 
 // --- Orientation -------------------------------------------------------------
@@ -401,6 +416,9 @@ function init() {
   el.mute.classList.toggle('muted', audio.isMuted);
   el.mute.textContent = audio.isMuted ? '♪̸' : '♪';
 
+  // Daylight mode defaults ON (best for outdoor play); honor a saved choice.
+  applyDaylight(localStorage.getItem(DAYLIGHT_KEY) !== '0');
+
   window.addEventListener('resize', () => { resize(); checkOrientation(); });
   window.addEventListener('orientationchange', () => { resize(); checkOrientation(); });
   window.matchMedia('(orientation: portrait)').addEventListener('change', checkOrientation);
@@ -414,6 +432,7 @@ function init() {
   el.startBtn.addEventListener('click', startGame);
   el.restartBtn.addEventListener('click', startGame);
   el.mute.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
+  el.daylight.addEventListener('click', (e) => { e.stopPropagation(); toggleDaylight(); });
 
   checkOrientation();
   registerSW();
