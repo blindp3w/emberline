@@ -15,6 +15,11 @@ A polished, installable, **offline-capable** endless runner PWA. Built for lands
 iPhone Safari — vanilla JavaScript, HTML5 Canvas, and the Web Audio API, with **no framework,
 no build step, and no runtime dependencies**.
 
+> 🏖️ **Scope, honestly:** up to and including the current commit, Burn Rate is a
+> **less-than-one-day, iPhone-only vacation project** — built on chill, for the fun of it. It
+> targets exactly one place (iPhone Safari, landscape) and hasn't been tested or hardened beyond
+> that. Read the polish and the "best practice" notes below in that light.
+
 ## Play
 
 - **Tap** anywhere to **jump** over amber **firewall** gates.
@@ -55,7 +60,7 @@ manifest.json               name/colors/landscape/standalone + icons (relative p
 sw.js                       versioned cache-first service worker (full offline)
 src/logic.js                PURE, DOM-free rules: collision, speed curve, spawn timing, scoring, runway
 src/audio.js                Web Audio synth voices + mute
-src/render.js               procedural art: code-rain, server racks, circuit grid, the AI agent, glitch
+src/render.js               procedural Outrun art: retrosun, code-rain, racks, reflective laser-grid, AI agent + bloom/CA/CRT post pass
 src/game.js                 rAF delta-time loop, input, state machine, DPR scaling, orientation
 scripts/generate-icons.mjs  zlib PNG encoder → icons/*.png (192, 512, maskable, apple-touch, favicon)
 test.js                     node test.js — no framework
