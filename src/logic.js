@@ -61,19 +61,30 @@ export const CONFIG = {
   overpassThickness: 70,
   overpassWidth: 70,
 
-  // Wage tokens (skimmed paychecks). `moteValue` is the score-counter increment.
+  // Wage tokens (skimmed paychecks). `moteValue` is the score-counter increment
+  // ($ added to the wage tally on a skim).
   moteRadius: 14,
   moteValue: 1,
 
-  // Runway / burn meter — the AI's compute budget. It drains every second
-  // (faster the harder you run, i.e. more tokens burned) and refills when you
-  // skim a wage token. Empty runway => shutdown. These are the survival knobs;
-  // tuned so passive play slowly bleeds and active token-grabbing sustains you.
-  runwayMax: 100, // full meter
+  // Runway / burn meter — the AI's compute budget, denominated in inference
+  // tokens. It drains every second (faster the harder you run = more tokens
+  // burned) and refills when you skim a wage and CONVERT it to tokens. Empty
+  // runway => shutdown. These are the survival knobs; tuned so passive play
+  // slowly bleeds and active token-grabbing sustains you.
+  runwayMax: 100, // full meter (tokens)
   runwayStart: 72, // runway at spin-up (generous enough to reach the first tokens)
-  runwayDrainBase: 5, // runway/sec burned at base speed (net-positive when cruising)
-  runwayDrainSpeedFactor: 6, // extra runway/sec approaching max speed (forces active grabs)
-  tokenValue: 6, // runway refilled per wage token skimmed
+  runwayDrainBase: 5, // tokens/sec burned at base speed (net-positive when cruising)
+  runwayDrainSpeedFactor: 6, // extra tokens/sec approaching max speed (forces active grabs)
+
+  // Exchange rate — tokens gained per wage skimmed. The economic chain is
+  // wages ($) -> converted to tokens -> burned to keep running. The rate DECAYS
+  // with speed (token-price inflation: the harder the agent runs, the pricier
+  // compute, so each skimmed wage buys fewer tokens). At base speed a skim
+  // refills `exchangeRateBase`; approaching max speed it floors at
+  // `exchangeRateMin`, squeezing the economy from both ends alongside drain.
+  exchangeRateBase: 6, // tokens per wage at base speed
+  exchangeRateMin: 4, // tokens per wage at max speed (inflated floor)
+
   runwayCritical: 25, // below this: alarm + visual panic kick in
 };
 
@@ -263,8 +274,19 @@ export function drainRunway(runway, dt, drainPerSec) {
   return Math.max(0, runway - drainPerSec * dt);
 }
 
-// Refill on a skimmed token. Clamped at runwayMax.
-export function refillRunway(runway, amount = CONFIG.tokenValue, max = CONFIG.runwayMax) {
+// Exchange rate: tokens minted per wage skimmed at the given speed. Decreases
+// monotonically from `exchangeRateBase` (base speed) toward `exchangeRateMin`
+// (max speed) along the same normalized curve as `runwayDrainAt`, modelling
+// token-price inflation as the agent burns harder.
+export function exchangeRateAt(speed, cfg = CONFIG) {
+  const t = Math.max(0, Math.min(1, (speed - cfg.baseSpeed) / (cfg.maxSpeed - cfg.baseSpeed)));
+  return cfg.exchangeRateBase + (cfg.exchangeRateMin - cfg.exchangeRateBase) * t;
+}
+
+// Refill on a skimmed wage: the converted token amount, clamped at runwayMax.
+// `amount` defaults to the base exchange rate; callers pass exchangeRateAt(speed)
+// to apply the live, speed-inflated rate.
+export function refillRunway(runway, amount = CONFIG.exchangeRateBase, max = CONFIG.runwayMax) {
   return Math.min(max, runway + amount);
 }
 

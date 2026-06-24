@@ -24,6 +24,7 @@ import {
   runwayDrainAt,
   drainRunway,
   refillRunway,
+  exchangeRateAt,
   isOutOfRunway,
   runwayPressure,
 } from './logic.js';
@@ -45,6 +46,7 @@ const el = {
   ember: document.getElementById('ember'),
   runway: document.getElementById('runway'), // burn-meter wrapper (gets .critical)
   runwayFill: document.getElementById('runwayFill'), // depleting bar fill
+  exchangeRate: document.getElementById('exchangeRate'), // live tokens-per-wage readout
   mute: document.getElementById('mute'),
   daylight: document.getElementById('daylight'),
   hud: document.getElementById('hud'),
@@ -231,12 +233,13 @@ function update(dt) {
     else if (p.needSitUnderpass) standUp();
   }
 
-  // Skim wage tokens: bump the score counter AND refill the runway.
+  // Skim a wage: bump the $ tally AND convert it to tokens at the live exchange
+  // rate (lower the faster you run) to refill the runway. Wages -> tokens -> run.
   for (const m of game.motes) {
     if (!m.collected && collectsMote(p, m)) {
       m.collected = true;
       game.ember = addEmberlight(game.ember);
-      game.runway = refillRunway(game.runway);
+      game.runway = refillRunway(game.runway, exchangeRateAt(game.speed));
       audio.pickup();
       spawnPickupSparks(m.x * view.scale, m.y * view.scale);
     }
@@ -438,6 +441,15 @@ function syncHud() {
   if (el.runway) {
     el.runway.classList.toggle('critical', game.alarm > 0);
     el.runway.setAttribute('aria-valuenow', String(pct));
+  }
+  // Live exchange rate (tokens minted per wage at the current speed). It slides
+  // from exchangeRateBase down to exchangeRateMin; flag the bottom third "lean"
+  // so the player sees compute getting pricier as they push.
+  if (el.exchangeRate) {
+    const rate = exchangeRateAt(game.speed);
+    el.exchangeRate.textContent = '⇄ ' + rate.toFixed(1);
+    const lean = rate <= CONFIG.exchangeRateMin + (CONFIG.exchangeRateBase - CONFIG.exchangeRateMin) * 0.34;
+    el.exchangeRate.classList.toggle('lean', lean);
   }
 }
 

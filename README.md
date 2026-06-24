@@ -24,9 +24,12 @@ no build step, and no runtime dependencies.
 
 - Tap anywhere to jump over amber firewall gates.
 - Swipe down to slide under hanging throttle bars (fibre-optic cables).
-- Skim glowing money-green wage tokens - they bump your score *and* refill the runway meter.
-- The runway drains as you run (faster the harder you go). Let it hit zero and you're shut down.
-  Crash into an obstacle and you fault. Distance is your score; best is saved locally.
+- Skim glowing money-green wages - each one is converted to inference *tokens* that refill the
+  runway (and adds to your wage tally). The exchange rate (`⇄` in the HUD) is best at low speed
+  and worsens the harder you push, so a wage buys less runway when you're flying.
+- The runway is your token balance; it drains as you run (faster the harder you go) and you spend
+  what you skim to stay alive. Let it hit zero and you're shut down. Crash into an obstacle and you
+  fault. Distance is your score; best is saved locally.
 - Desktop testing: Space / ↑ jump, ↓ slide, M mute.
 - A brief controls card appears on your first ever launch; dismiss it and it won't show again.
 
