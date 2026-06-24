@@ -33,7 +33,10 @@
       <span id="distance" class="hud-stat">0 m</span>
       <span id="ember" class="hud-stat ember">$ 0</span>
       <div id="runway" class="burn-meter" role="meter" aria-label="Runway" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
-        <span class="burn-label">RUNWAY</span>
+        <div class="burn-head">
+          <span class="burn-label">RUNWAY</span>
+          <span class="burn-rate" id="exchangeRate" aria-hidden="true">⇄ 6.0</span>
+        </div>
         <div class="burn-track"><div id="runwayFill" class="burn-fill"></div></div>
       </div>
     </div>

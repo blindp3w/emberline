@@ -89,6 +89,12 @@ body.daylight #game {
   gap: 3px;
   pointer-events: none;
 }
+.burn-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
 .burn-label {
   font-size: clamp(8px, 1.5vh, 11px);
   letter-spacing: 0.22em;
@@ -96,6 +102,19 @@ body.daylight #game {
   color: #8af0ff;
   opacity: 0.8;
 }
+/* Live tokens-per-wage exchange rate. Money-green normally; warms to thermal
+   amber ("lean") as it slides toward the floor at high speed. */
+.burn-rate {
+  font-size: clamp(8px, 1.5vh, 11px);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--ember);
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s ease;
+}
+.burn-rate.lean { color: var(--ember-hot); opacity: 1; }
+.burn-meter.critical .burn-rate { color: var(--hazard); }
 .burn-track {
   width: clamp(90px, 22vw, 200px);
   height: clamp(7px, 1.4vh, 11px);

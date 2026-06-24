@@ -29,6 +29,7 @@ import {
   runwayDrainAt,
   drainRunway,
   refillRunway,
+  exchangeRateAt,
   isOutOfRunway,
   runwayPressure,
 } from './src/logic.js';
@@ -257,9 +258,26 @@ check('runway: drainRunway frame-rate independent', approx(
   drainRunway(50, 0.5, 12)
 ));
 
-check('runway: refillRunway adds the default token value', refillRunway(40) === 40 + CONFIG.tokenValue);
+check('runway: refillRunway adds the default (base exchange rate)', refillRunway(40) === 40 + CONFIG.exchangeRateBase);
 check('runway: refillRunway adds a custom amount', refillRunway(40, 8) === 48);
 check('runway: refillRunway clamps at max', refillRunway(CONFIG.runwayMax - 2, 10) === CONFIG.runwayMax);
+
+// Exchange rate: tokens per wage, decaying with speed (wages -> tokens -> run).
+check('exchange: rate equals base at baseSpeed', approx(exchangeRateAt(CONFIG.baseSpeed), CONFIG.exchangeRateBase));
+check('exchange: rate equals min at maxSpeed', approx(exchangeRateAt(CONFIG.maxSpeed), CONFIG.exchangeRateMin));
+check('exchange: rate clamps to base below baseSpeed', approx(exchangeRateAt(-1000), CONFIG.exchangeRateBase));
+check('exchange: rate clamps to min above maxSpeed', approx(exchangeRateAt(CONFIG.maxSpeed * 10), CONFIG.exchangeRateMin));
+check('exchange: rate decreases with speed', (() => {
+  let prev = Infinity;
+  for (let s = CONFIG.baseSpeed; s <= CONFIG.maxSpeed; s += (CONFIG.maxSpeed - CONFIG.baseSpeed) / 8) {
+    const r = exchangeRateAt(s);
+    if (r > prev + 1e-9) return false;
+    prev = r;
+  }
+  return true;
+})());
+check('exchange: a high-speed skim refills less than a base-speed skim',
+  refillRunway(0, exchangeRateAt(CONFIG.maxSpeed)) < refillRunway(0, exchangeRateAt(CONFIG.baseSpeed)));
 
 check('runway: isOutOfRunway true at zero', isOutOfRunway(0));
 check('runway: isOutOfRunway true below zero', isOutOfRunway(-0.01));
