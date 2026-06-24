@@ -309,6 +309,52 @@ body.daylight #game {
   color: #7fa6b8;
 }
 
+/* ---------- Game-over burn ledger ("inference invoice") ---------- */
+/* Monospace, terminal-receipt aesthetic — no font assets, just a system mono
+   stack. Epitaph reads as a dev signal (SIGSEGV / SIGKILL). */
+.epitaph {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(11px, 2.2vh, 15px);
+  letter-spacing: 0.04em;
+  color: var(--ember-hot); /* thermal amber for a fault */
+  opacity: 0.92;
+  margin-top: -4px;
+}
+.epitaph.shutdown { color: var(--hazard); } /* hazard red for an OOM kill */
+.invoice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.invoice-rule {
+  font-size: clamp(8px, 1.6vh, 11px);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #5be8ff;
+  opacity: 0.7;
+}
+.invoice-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  font-size: clamp(12px, 2.4vh, 16px);
+  color: #9fc7d6;
+  font-variant-numeric: tabular-nums;
+}
+.invoice-line span { white-space: nowrap; }
+.invoice-line i { font-style: normal; opacity: 0.6; letter-spacing: 0.06em; }
+.invoice-line b { color: #fff; font-weight: 700; }
+/* Thin separators between the three stats. */
+.invoice-line span:not(:first-child)::before {
+  content: "·";
+  margin-right: 14px;
+  color: #5be8ff;
+  opacity: 0.5;
+}
+
 /* ---------- Rotate prompt ---------- */
 .rotate-icon {
   font-size: clamp(48px, 14vh, 96px);

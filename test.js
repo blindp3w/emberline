@@ -32,6 +32,7 @@ import {
   exchangeRateAt,
   isOutOfRunway,
   runwayPressure,
+  theftFundedPct,
 } from './src/logic.js';
 
 let passed = 0;
@@ -287,6 +288,13 @@ check('runway: pressure is 0 at/above critical', runwayPressure(CONFIG.runwayCri
 check('runway: pressure is 1 when empty', runwayPressure(0) === 1);
 check('runway: pressure half-way through critical band', approx(runwayPressure(CONFIG.runwayCritical / 2), 0.5));
 check('runway: pressure rises as runway falls', runwayPressure(CONFIG.runwayCritical * 0.25) > runwayPressure(CONFIG.runwayCritical * 0.75));
+
+// Burn ledger: theft-funded share (minted wages / compute burned).
+check('ledger: theftFundedPct is 0 when nothing burned', theftFundedPct(0, 0) === 0 && theftFundedPct(50, 0) === 0);
+check('ledger: theftFundedPct half', theftFundedPct(30, 60) === 50);
+check('ledger: theftFundedPct rounds to a whole percent', theftFundedPct(1, 3) === 33);
+check('ledger: theftFundedPct clamps at 100', theftFundedPct(200, 100) === 100);
+check('ledger: theftFundedPct never negative', theftFundedPct(-5, 100) === 0);
 
 // --- report -----------------------------------------------------------------
 console.log('');
