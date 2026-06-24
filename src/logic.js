@@ -304,3 +304,13 @@ export function runwayPressure(runway, cfg = CONFIG) {
   if (runway <= 0) return 1;
   return 1 - runway / c;
 }
+
+// --- Run summary / burn ledger ----------------------------------------------
+
+// What share of the compute you burned this run was paid for by skimmed wages
+// (minted tokens) vs your spin-up reserve. Returns a whole percent in [0..100].
+// Burned 0 => 0 (nothing consumed yet, so nothing was theft-funded).
+export function theftFundedPct(minted, burned) {
+  if (burned <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((minted / burned) * 100)));
+}

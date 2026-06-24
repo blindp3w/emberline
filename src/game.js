@@ -27,6 +27,7 @@ import {
   exchangeRateAt,
   isOutOfRunway,
   runwayPressure,
+  theftFundedPct,
 } from './logic.js';
 import { Renderer } from './render.js';
 import { Audio } from './audio.js';
@@ -56,6 +57,10 @@ const el = {
   helpBtn: document.getElementById('helpBtn'),
   gameover: document.getElementById('gameover'),
   gameoverTitle: document.getElementById('gameoverTitle'),
+  epitaph: document.getElementById('epitaph'), // SIG* flavor line under the title
+  invBurned: document.getElementById('invBurned'), // burn-ledger: tokens burned
+  invPeak: document.getElementById('invPeak'), // burn-ledger: peak tok/s
+  invTheft: document.getElementById('invTheft'), // burn-ledger: theft-funded %
   restartBtn: document.getElementById('restartBtn'),
   finalDistance: document.getElementById('finalDistance'),
   finalEmber: document.getElementById('finalEmber'),
@@ -114,6 +119,8 @@ function freshGame() {
     runway: CONFIG.runwayStart, // compute budget; empty => shutdown
     alarm: 0, // runway pressure [0..1] — drives the kill-switch panic FX
     warnTimer: 0, // throttles the low-runway alarm beep
+    tokensBurned: 0, // cumulative compute consumed this run (drain) — the burn ledger
+    tokensMinted: 0, // cumulative tokens converted from skimmed wages (refill)
     running: false,
     lastObstacleType: null,
     sameTypeRun: 0,
@@ -176,7 +183,9 @@ function update(dt) {
   audio.setSwell(game.darkness);
 
   // Burn the runway (faster the harder you run). Refilled by skimming tokens.
+  const beforeDrain = game.runway;
   game.runway = drainRunway(game.runway, dt, runwayDrainAt(game.speed));
+  game.tokensBurned += beforeDrain - game.runway; // ledger: compute actually consumed
   game.alarm = runwayPressure(game.runway); // separate channel for the panic FX
   // Low-runway warning: a periodic alarm beep while critical.
   if (game.alarm > 0) {
@@ -239,7 +248,9 @@ function update(dt) {
     if (!m.collected && collectsMote(p, m)) {
       m.collected = true;
       game.ember = addEmberlight(game.ember);
+      const beforeRefill = game.runway;
       game.runway = refillRunway(game.runway, exchangeRateAt(game.speed));
+      game.tokensMinted += game.runway - beforeRefill; // ledger: tokens actually banked
       audio.pickup();
       spawnPickupSparks(m.x * view.scale, m.y * view.scale);
     }
@@ -409,6 +420,20 @@ function endRun(cause = 'fault') {
   audio.stopSwell();
 
   el.gameoverTitle.textContent = cause === 'shutdown' ? 'RUNWAY EXHAUSTED' : 'PROCESS FAULTED';
+
+  // Burn ledger / "inference invoice": how much compute this run cost. The
+  // epitaph is a dev-flavored signal: a fault is a SIGSEGV, an empty runway is
+  // an OOM SIGKILL. Peak burn is the drain at the top speed reached (speed only
+  // ever rises, so the final speed is the peak).
+  if (el.epitaph) {
+    el.epitaph.textContent = cause === 'shutdown'
+      ? 'SIGKILL · out of memory'
+      : 'SIGSEGV · segmentation fault';
+    el.epitaph.classList.toggle('shutdown', cause === 'shutdown');
+  }
+  if (el.invBurned) el.invBurned.textContent = Math.round(game.tokensBurned).toLocaleString('en-US');
+  if (el.invPeak) el.invPeak.textContent = runwayDrainAt(game.speed).toFixed(1);
+  if (el.invTheft) el.invTheft.textContent = theftFundedPct(game.tokensMinted, game.tokensBurned) + '%';
 
   const dist = scoreFromDistance(game.distance);
   const isBest = dist > best;
