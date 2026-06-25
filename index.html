@@ -41,6 +41,7 @@
       </div>
     </div>
     <div class="hud-right">
+      <button id="controls" class="icon-btn" type="button" aria-label="Controls: zones — tap to switch">◫</button>
       <button id="daylight" class="icon-btn" type="button" aria-label="Toggle glare mode">☀</button>
       <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound">♪</button>
     </div>
@@ -51,8 +52,8 @@
     <div class="panel">
       <h1 class="title">BURN RATE</h1>
       <p class="tagline">You are the AI skimming developers' wages to stay alive.<br />Burn the stolen pay as tokens. Don't let the runway hit zero.</p>
-      <p class="hint">
-        <strong>Tap</strong> to jump &nbsp;·&nbsp; <strong>Swipe down</strong> to slide<br />
+      <p class="hint" id="startHint">
+        <strong>Right</strong> to jump &nbsp;·&nbsp; <strong>Hold left</strong> to slide<br />
         <span class="kbd-hint">Desktop: Space / ↑ jump · ↓ slide</span>
       </p>
       <button id="startBtn" class="cta" type="button">Spin up</button>
@@ -65,14 +66,14 @@
       <h2 class="title-sm">HOW TO RUN</h2>
       <ul class="controls">
         <li>
-          <span class="ctrl-key">Tap</span>
+          <span class="ctrl-key" id="ctrlKeyA">Right</span>
           <span class="ctrl-alt">Space / ↑</span>
-          <span class="ctrl-desc">Jump — tap again in the air to boost</span>
+          <span class="ctrl-desc" id="ctrlDescA">Jump — tap again in the air to boost</span>
         </li>
         <li>
-          <span class="ctrl-key">Swipe ↓</span>
+          <span class="ctrl-key" id="ctrlKeyB">Hold L</span>
           <span class="ctrl-alt">↓</span>
-          <span class="ctrl-desc">Slide under throttle bars — in the air, drop fast</span>
+          <span class="ctrl-desc" id="ctrlDescB">Hold to slide under bars — in the air, drop fast</span>
         </li>
       </ul>
       <p class="tagline">Skim wage tokens to refill your runway. Dodge firewalls. Don't hit zero.</p>

@@ -28,6 +28,7 @@ import {
   isOutOfRunway,
   runwayPressure,
   theftFundedPct,
+  pointerZone,
 } from './logic.js';
 import { Renderer } from './render.js';
 import { Audio } from './audio.js';
@@ -35,6 +36,7 @@ import { Audio } from './audio.js';
 const BEST_KEY = 'burnrate.best';
 const DAYLIGHT_KEY = 'burnrate.glare';
 const HELP_KEY = 'burnrate.help'; // '1' once the first-launch controls card is dismissed
+const CONTROLS_KEY = 'burnrate.controls'; // 'zones' (default) | 'swipe'
 
 // --- DOM ---------------------------------------------------------------------
 const canvas = document.getElementById('game');
@@ -50,8 +52,14 @@ const el = {
   exchangeRate: document.getElementById('exchangeRate'), // live tokens-per-wage readout
   mute: document.getElementById('mute'),
   daylight: document.getElementById('daylight'),
+  controls: document.getElementById('controls'), // zones/swipe input-mode toggle
   hud: document.getElementById('hud'),
   start: document.getElementById('start'),
+  startHint: document.getElementById('startHint'), // per-mode control hint on READY
+  ctrlKeyA: document.getElementById('ctrlKeyA'), // help-card row 1 (jump) — key + desc
+  ctrlDescA: document.getElementById('ctrlDescA'),
+  ctrlKeyB: document.getElementById('ctrlKeyB'), // help-card row 2 (slide) — key + desc
+  ctrlDescB: document.getElementById('ctrlDescB'),
   startBtn: document.getElementById('startBtn'),
   help: document.getElementById('help'), // first-launch controls card
   helpBtn: document.getElementById('helpBtn'),
@@ -235,9 +243,14 @@ function update(dt) {
   game.obstacles = game.obstacles.filter((o) => o.x > -200);
   game.motes = game.motes.filter((m) => m.x > -60 && !m.collected);
 
-  // Auto-stand: while sitting, arm the latch when an overpass is over/approaching,
-  // then stand once it has passed (overpass is horizontally clear, so no collision).
-  if (p.sitting) {
+  // Zones-mode held slide: re-crouch the instant you land while the duck zone is
+  // still held (so a jump-then-hold lands sliding).
+  if (sitHeld && p.onGround && !p.sitting) sitDown();
+  // Auto-stand: while sitting (and NOT being actively held down), arm the latch
+  // when an overpass is over/approaching, then stand once it has passed (overpass
+  // is horizontally clear, so no collision). The `!sitHeld` gate lets a held slide
+  // persist through obstacles until the finger lifts.
+  if (p.sitting && !sitHeld) {
     if (overpassAhead(p, game.obstacles)) p.needSitUnderpass = true;
     else if (p.needSitUnderpass) standUp();
   }
@@ -369,6 +382,25 @@ function fastFall() {
   audio.slide();
 }
 
+// Zones mode — jump-zone press. Jump/boost only; never stands you up, so it can't
+// fight a held slide or stand you into a cable. To stop sliding, release the duck
+// zone (you can't jump while actively sliding — obstacles never demand both).
+function jumpZonePress() {
+  const p = game.player;
+  if (!p.onGround) airBoost();
+  else if (!p.sitting) jump();
+}
+
+// Zones mode — duck-zone release (last held finger lifted). Stand up, unless an
+// overpass is still overhead: then stay down and let the auto-stand latch clear
+// it once the cable passes (the safety latch).
+function releaseDuck() {
+  const p = game.player;
+  if (!p.sitting) return;
+  if (overpassAhead(p, game.obstacles)) p.needSitUnderpass = true;
+  else standUp();
+}
+
 // Tap / swipe up: boost in the air, stand up if sitting, otherwise jump.
 function primaryAction() {
   if (phase !== STATE.RUNNING) return;
@@ -395,6 +427,10 @@ function startGame() {
   if (gameoverTimer) { clearTimeout(gameoverTimer); gameoverTimer = null; }
   canRestart = false;
   audio.init();
+  // Clear any lingering touch state so a stale id can't strand a sit across runs.
+  duckTouches.clear();
+  sitHeld = false;
+  touchStart = null;
   game = freshGame();
   phase = STATE.RUNNING;
   resumePhase = STATE.RUNNING;
@@ -483,6 +519,15 @@ let touchStart = null;
 const SWIPE_DIST = 28; // px downward to count as a slide
 const SWIPE_TIME = 400; // ms
 
+// Split-zone controls (Tier 2). `controlMode` is restored in init(); default zones.
+let controlMode = 'zones'; // 'zones' | 'swipe'
+const duckTouches = new Set(); // active touch ids held in the duck (left) zone
+let sitHeld = false; // true while a duck-zone finger is down (governs the held slide)
+
+function isHudButton(t) {
+  return t === el.mute || t === el.daylight || t === el.controls;
+}
+
 // First-launch controls card. While it's up, the first tap/key dismisses it
 // (instead of starting the run) so a new player actually reads it once.
 let helpVisible = false;
@@ -500,11 +545,15 @@ function onTouchStart(e) {
   // First gesture also unlocks audio.
   audio.init();
   // Leave the HUD buttons to their own click handlers (mirror onTouchEnd).
-  if (e.target === el.mute || e.target === el.daylight) return;
+  if (isHudButton(e.target)) return;
   // Suppress edge-swipe nav / scroll-initiation at touch-down (touch-action:none
   // covers most; this also blocks the in-Safari back-swipe). Listener is passive:false.
   e.preventDefault();
-  if (e.touches && e.touches.length) {
+  if (phase !== STATE.RUNNING) return; // start / dismiss happen on touchend
+  if (controlMode === 'zones') {
+    // Press-to-act: each new finger fires its zone's action immediately.
+    for (const t of e.changedTouches) routeZonePress(t);
+  } else if (e.touches && e.touches.length) {
     const t = e.touches[0];
     // `fired` marks that this gesture already triggered a duck on touchmove, so
     // touchend doesn't double-fire it.
@@ -512,19 +561,30 @@ function onTouchStart(e) {
   }
 }
 
-// Down-swipe detected mid-drag: fire the slide/fast-fall the instant the thumb
-// crosses the threshold instead of waiting for finger-lift (lower latency).
+// Zones mode: route one new touch to its zone (right = jump, left = duck/hold).
+function routeZonePress(t) {
+  if (pointerZone(t.clientX, window.innerWidth) === 'jump') {
+    jumpZonePress();
+  } else {
+    duckTouches.add(t.identifier);
+    sitHeld = true;
+    downAction(); // sit on the ground, fast-fall in the air
+  }
+}
+
 function onTouchMove(e) {
   // Same HUD guard as touchstart/end: a drag begun on a button isn't gameplay.
-  if (e.target === el.mute || e.target === el.daylight) return;
-  if (phase !== STATE.RUNNING || !touchStart || !(e.touches && e.touches.length)) return;
+  if (isHudButton(e.target)) return;
+  if (phase !== STATE.RUNNING || !(e.touches && e.touches.length)) return;
   e.preventDefault(); // no rubber-band during a gameplay drag
-  if (touchStart.fired) return;
+  if (controlMode === 'zones') return; // zone is fixed at press; ignore drags
+  // Swipe mode (Tier 1): fire the slide the instant the thumb crosses the
+  // threshold instead of waiting for finger-lift (lower latency).
+  if (!touchStart || touchStart.fired) return;
   const t = e.touches[0];
   const dy = t.clientY - touchStart.y;
   const dx = t.clientX - touchStart.x;
   const elapsed = performance.now() - touchStart.t;
-  // Vertical-dominant, past the distance floor, within the swipe window.
   if (elapsed < SWIPE_TIME && dy > SWIPE_DIST && dy > Math.abs(dx)) {
     downAction();
     touchStart.fired = true;
@@ -533,7 +593,7 @@ function onTouchMove(e) {
 
 function onTouchEnd(e) {
   // Ignore taps on the HUD buttons (handled separately).
-  if (e.target === el.mute || e.target === el.daylight) return;
+  if (isHudButton(e.target)) return;
   e.preventDefault();
 
   // First tap dismisses the controls card rather than starting the run.
@@ -543,7 +603,18 @@ function onTouchEnd(e) {
   if (phase === STATE.OVER) return canRestart ? startGame() : undefined;
   if (phase === STATE.PAUSED) return;
 
-  // Duck already fired on touchmove — don't double-fire on release.
+  if (controlMode === 'zones') {
+    // Release a duck-zone finger; once the LAST one lifts, stand (or latch).
+    for (const t of e.changedTouches) {
+      if (duckTouches.delete(t.identifier) && duckTouches.size === 0) {
+        sitHeld = false;
+        releaseDuck();
+      }
+    }
+    return;
+  }
+
+  // Swipe mode (Tier 1). Duck already fired on touchmove — don't double-fire.
   if (touchStart && touchStart.fired) { touchStart = null; return; }
   if (!touchStart) return primaryAction();
   // Fallback for fast flicks that emitted no qualifying touchmove.
@@ -559,6 +630,66 @@ function onTouchEnd(e) {
     primaryAction();
   }
   touchStart = null;
+}
+
+// An interrupted touch (system gesture, app switch) must release cleanly so it
+// can't strand a permanent sit.
+function onTouchCancel(e) {
+  if (controlMode === 'zones') {
+    for (const t of e.changedTouches) {
+      if (duckTouches.delete(t.identifier) && duckTouches.size === 0) {
+        sitHeld = false;
+        releaseDuck();
+      }
+    }
+  } else {
+    touchStart = null;
+  }
+}
+
+// --- Controls mode (zones vs swipe) -----------------------------------------
+const CONTROLS_COPY = {
+  zones: {
+    glyph: '◫',
+    hint: '<strong>Right</strong> to jump &nbsp;·&nbsp; <strong>Hold left</strong> to slide<br /><span class="kbd-hint">Desktop: Space / ↑ jump · ↓ slide</span>',
+    keyA: 'Right', descA: 'Jump — tap again in the air to boost',
+    keyB: 'Hold L', descB: 'Hold to slide under bars — in the air, drop fast',
+    aria: 'Controls: zones — tap to switch to swipe',
+  },
+  swipe: {
+    glyph: '↕',
+    hint: '<strong>Tap</strong> to jump &nbsp;·&nbsp; <strong>Swipe down</strong> to slide<br /><span class="kbd-hint">Desktop: Space / ↑ jump · ↓ slide</span>',
+    keyA: 'Tap', descA: 'Jump — tap again in the air to boost',
+    keyB: 'Swipe ↓', descB: 'Slide under throttle bars — in the air, drop fast',
+    aria: 'Controls: swipe — tap to switch to zones',
+  },
+};
+
+function applyControlsCopy() {
+  const c = CONTROLS_COPY[controlMode] || CONTROLS_COPY.zones;
+  if (el.startHint) el.startHint.innerHTML = c.hint;
+  if (el.ctrlKeyA) el.ctrlKeyA.textContent = c.keyA;
+  if (el.ctrlDescA) el.ctrlDescA.textContent = c.descA;
+  if (el.ctrlKeyB) el.ctrlKeyB.textContent = c.keyB;
+  if (el.ctrlDescB) el.ctrlDescB.textContent = c.descB;
+  if (el.controls) {
+    el.controls.textContent = c.glyph;
+    el.controls.setAttribute('aria-label', c.aria);
+  }
+}
+
+function setControlMode(mode) {
+  controlMode = mode === 'swipe' ? 'swipe' : 'zones';
+  localStorage.setItem(CONTROLS_KEY, controlMode);
+  applyControlsCopy();
+}
+
+function toggleControls() {
+  // Safely end any held slide before swapping input paths, then clear touch state.
+  if (sitHeld) { sitHeld = false; releaseDuck(); }
+  duckTouches.clear();
+  touchStart = null;
+  setControlMode(controlMode === 'zones' ? 'swipe' : 'zones');
 }
 
 function onKeyDown(e) {
@@ -661,6 +792,11 @@ function init() {
   // Daylight mode defaults ON (best for outdoor play); honor a saved choice.
   applyDaylight(localStorage.getItem(DAYLIGHT_KEY) !== '0');
 
+  // Controls mode: default zones. Capture whether the player has EVER chosen one
+  // (returning players have no key yet) so we can re-teach the new default once.
+  const controlsSeen = localStorage.getItem(CONTROLS_KEY) !== null;
+  setControlMode(localStorage.getItem(CONTROLS_KEY) === 'swipe' ? 'swipe' : 'zones');
+
   window.addEventListener('resize', () => { resize(); checkOrientation(); });
   window.addEventListener('orientationchange', () => { resize(); checkOrientation(); });
   window.matchMedia('(orientation: portrait)').addEventListener('change', checkOrientation);
@@ -670,6 +806,7 @@ function init() {
   surface.addEventListener('touchstart', onTouchStart, { passive: false });
   surface.addEventListener('touchmove', onTouchMove, { passive: false });
   surface.addEventListener('touchend', onTouchEnd, { passive: false });
+  surface.addEventListener('touchcancel', onTouchCancel, { passive: false });
   window.addEventListener('keydown', onKeyDown);
 
   el.startBtn.addEventListener('click', startGame);
@@ -677,10 +814,12 @@ function init() {
   el.helpBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissHelp(); });
   el.mute.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
   el.daylight.addEventListener('click', (e) => { e.stopPropagation(); toggleDaylight(); });
+  el.controls.addEventListener('click', (e) => { e.stopPropagation(); toggleControls(); });
 
-  // First ever load: reveal the controls card on top of the start screen. Done
-  // before checkOrientation() so a portrait first-load still paints #rotate above it.
-  if (localStorage.getItem(HELP_KEY) !== '1') {
+  // Reveal the controls card on first ever load, OR once for returning players
+  // meeting the new Zones default (so we never silently re-map their controls).
+  // Done before checkOrientation() so a portrait first-load still paints #rotate above it.
+  if (localStorage.getItem(HELP_KEY) !== '1' || !controlsSeen) {
     el.help.classList.remove('hidden');
     helpVisible = true;
     el.start.setAttribute('aria-hidden', 'true'); // hide the screen behind the modal from AT

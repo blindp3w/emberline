@@ -33,6 +33,7 @@ import {
   isOutOfRunway,
   runwayPressure,
   theftFundedPct,
+  pointerZone,
 } from './src/logic.js';
 
 let passed = 0;
@@ -295,6 +296,12 @@ check('ledger: theftFundedPct half', theftFundedPct(30, 60) === 50);
 check('ledger: theftFundedPct rounds to a whole percent', theftFundedPct(1, 3) === 33);
 check('ledger: theftFundedPct clamps at 100', theftFundedPct(200, 100) === 100);
 check('ledger: theftFundedPct never negative', theftFundedPct(-5, 100) === 0);
+
+// Touch zones: right half jumps, left half ducks (split at the midpoint).
+check('zone: left edge ducks', pointerZone(0, 800) === 'duck');
+check('zone: just left of center ducks', pointerZone(399, 800) === 'duck');
+check('zone: exact center jumps', pointerZone(400, 800) === 'jump');
+check('zone: right edge jumps', pointerZone(800, 800) === 'jump');
 
 // --- report -----------------------------------------------------------------
 console.log('');

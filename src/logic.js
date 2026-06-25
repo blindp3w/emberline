@@ -314,3 +314,11 @@ export function theftFundedPct(minted, burned) {
   if (burned <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((minted / burned) * 100)));
 }
+
+// --- Touch zones (split-zone controls) --------------------------------------
+// Which control zone a screen x falls in, for the two-thumb landscape layout:
+// right half jumps, left half ducks. Screen-space (CSS px), so it lives here
+// only to stay pure + unit-testable; game.js feeds it window.innerWidth.
+export function pointerZone(clientX, viewportWidth) {
+  return clientX >= viewportWidth / 2 ? 'jump' : 'duck';
+}
