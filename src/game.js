@@ -499,9 +499,35 @@ function dismissHelp() {
 function onTouchStart(e) {
   // First gesture also unlocks audio.
   audio.init();
+  // Leave the HUD buttons to their own click handlers (mirror onTouchEnd).
+  if (e.target === el.mute || e.target === el.daylight) return;
+  // Suppress edge-swipe nav / scroll-initiation at touch-down (touch-action:none
+  // covers most; this also blocks the in-Safari back-swipe). Listener is passive:false.
+  e.preventDefault();
   if (e.touches && e.touches.length) {
     const t = e.touches[0];
-    touchStart = { x: t.clientX, y: t.clientY, t: performance.now() };
+    // `fired` marks that this gesture already triggered a duck on touchmove, so
+    // touchend doesn't double-fire it.
+    touchStart = { x: t.clientX, y: t.clientY, t: performance.now(), fired: false };
+  }
+}
+
+// Down-swipe detected mid-drag: fire the slide/fast-fall the instant the thumb
+// crosses the threshold instead of waiting for finger-lift (lower latency).
+function onTouchMove(e) {
+  // Same HUD guard as touchstart/end: a drag begun on a button isn't gameplay.
+  if (e.target === el.mute || e.target === el.daylight) return;
+  if (phase !== STATE.RUNNING || !touchStart || !(e.touches && e.touches.length)) return;
+  e.preventDefault(); // no rubber-band during a gameplay drag
+  if (touchStart.fired) return;
+  const t = e.touches[0];
+  const dy = t.clientY - touchStart.y;
+  const dx = t.clientX - touchStart.x;
+  const elapsed = performance.now() - touchStart.t;
+  // Vertical-dominant, past the distance floor, within the swipe window.
+  if (elapsed < SWIPE_TIME && dy > SWIPE_DIST && dy > Math.abs(dx)) {
+    downAction();
+    touchStart.fired = true;
   }
 }
 
@@ -517,11 +543,15 @@ function onTouchEnd(e) {
   if (phase === STATE.OVER) return canRestart ? startGame() : undefined;
   if (phase === STATE.PAUSED) return;
 
+  // Duck already fired on touchmove — don't double-fire on release.
+  if (touchStart && touchStart.fired) { touchStart = null; return; }
   if (!touchStart) return primaryAction();
+  // Fallback for fast flicks that emitted no qualifying touchmove.
   const end = e.changedTouches && e.changedTouches[0];
   const dy = end ? end.clientY - touchStart.y : 0;
+  const dx = end ? end.clientX - touchStart.x : 0;
   const elapsed = performance.now() - touchStart.t;
-  if (elapsed < SWIPE_TIME && dy > SWIPE_DIST) {
+  if (elapsed < SWIPE_TIME && dy > SWIPE_DIST && dy > Math.abs(dx)) {
     // Swipe down: sit on the ground, fast-fall in the air.
     downAction();
   } else {
@@ -638,6 +668,7 @@ function init() {
   // Touch input (not mouse) on the canvas + overlays.
   const surface = document.body;
   surface.addEventListener('touchstart', onTouchStart, { passive: false });
+  surface.addEventListener('touchmove', onTouchMove, { passive: false });
   surface.addEventListener('touchend', onTouchEnd, { passive: false });
   window.addEventListener('keydown', onKeyDown);
 
