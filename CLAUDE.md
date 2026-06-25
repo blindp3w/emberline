@@ -47,14 +47,19 @@ Tuning constants (velocities, gaps, spawn cadence, palette timings) live in the 
 - **Coordinate model:** logic uses a virtual `WORLD` (1280×720, `groundY` 560) where y grows
   **downward**. The renderer maps WORLD→screen via `view.scale = cssHeight / WORLD.height`. The
   runner is fixed at `worldX`; obstacles and motes scroll left.
-- **Input:** touch via `touchstart`/`touchend` (never mouse events). Tap and swipe-up →
-  `primaryAction` (jump / mid-air boost / stand up); swipe-down → `downAction` (sit / fast-fall).
-  Keyboard mirrors this and ignores `e.repeat`.
+- **Input:** touch via `touchstart`/`touchmove`/`touchend`/`touchcancel` (never mouse events),
+  with two selectable schemes (toggle persisted to `burnrate.controls`, **default `zones`**).
+  **Zones** (multi-touch, press-to-act): right half = jump / mid-air boost, left half =
+  hold-to-slide (sit on the ground, fast-fall in the air); releasing the last duck-zone finger
+  stands up, with an overpass safety-latch. **Swipe** (Tier-1 fallback): tap/swipe-up →
+  `primaryAction` (jump / boost / stand up), swipe-down → `downAction` (sit / fast-fall). Keyboard
+  mirrors the swipe mapping and ignores `e.repeat`.
 
 ## Player/state model
 
 - Crouch is a **held `sitting`** state (not timed). It auto-stands once a ducked-under OVERPASS has
-  passed, but a manual sit with nothing nearby persists until the player stands.
+  passed, but a manual sit with nothing nearby persists until the player stands. In zones mode the
+  held duck zone drives it (`sitHeld` gates the auto-stand so a hold persists through obstacles).
 - Sitting clears OVERPASS cables but NOT low BARRIERs (those require a jump).
 - One mid-air boost per jump, gated by `airBoostUsed` (reset on each ground jump).
 

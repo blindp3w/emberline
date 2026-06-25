@@ -15,21 +15,29 @@ A polished, installable, offline-capable endless runner PWA. Built for landscape
 iPhone Safari - vanilla JavaScript, HTML5 Canvas, and the Web Audio API, with no framework,
 no build step, and no runtime dependencies.
 
-> 🏖️ Scope, honestly: up to and including the current commit, Burn Rate is a
-> less-than-one-day, iPhone-only vacation project - built on chill, for the fun of it. It
-> targets exactly one place (iPhone Safari, landscape) and hasn't been tested or hardened beyond
-> that. Read the polish and the "best practice" notes below in that light.
+> 🏖️ Scope, honestly: up to and including the current commit, Burn Rate is an iPhone-only,
+> built-on-chill project, for the fun of it. It has grown past the original single day into a
+> handful of days now - but still only ever picked up when I feel like it, and it has cost me
+> pretty little time overall. It targets exactly one place (iPhone Safari, landscape) and hasn't
+> been tested or hardened beyond that. Read the polish and the "best practice" notes below in
+> that light.
 
 ## Play
 
-- Tap anywhere to jump over amber firewall gates.
-- Swipe down to slide under hanging throttle bars (fibre-optic cables).
+- Controls default to *zones*: tap the right half to jump over amber firewall gates, hold the left
+  half to slide under hanging throttle bars (fibre-optic cables). Tap right again in the air to
+  boost; the left hold fast-falls in the air. Release the left zone to stand (it won't stand you
+  into a cable - it waits for the overpass to clear).
+- Prefer the old scheme? The `◫` button in the HUD toggles to *swipe* controls (tap anywhere to
+  jump, swipe down to slide). Your choice is saved.
 - Skim glowing money-green wages - each one is converted to inference *tokens* that refill the
   runway (and adds to your wage tally). The exchange rate (`⇄` in the HUD) is best at low speed
   and worsens the harder you push, so a wage buys less runway when you're flying.
 - The runway is your token balance; it drains as you run (faster the harder you go) and you spend
   what you skim to stay alive. Let it hit zero and you're shut down. Crash into an obstacle and you
   fault. Distance is your score; best is saved locally.
+- On game over, a little "inference invoice" itemises the run - tokens burned, peak burn rate, and
+  how much of your runtime was theft-funded - under a SIGSEGV/SIGKILL epitaph.
 - Desktop testing: Space / ↑ jump, ↓ slide, M mute.
 - A brief controls card appears on your first ever launch; dismiss it and it won't show again.
 
